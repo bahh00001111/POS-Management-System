@@ -19,8 +19,27 @@ class Order extends Model
         'order_status',
         'payment_status',
         'total_amount',
+        'subtotal',
+        'discount_type',
+        'discount_value',
+        'discount_amount',
+        'delivery_method',
+        'delivery_fee',
+        'customer_name',
+        'phone_number',
+        'delivery_address',
+        'delivery_platform',
+        'external_order_id',
         'user_id',
         'order_date'
+    ];
+
+    protected $casts = [
+        'subtotal' => 'float',
+        'discount_value' => 'float',
+        'discount_amount' => 'float',
+        'delivery_fee' => 'float',
+        'total_amount' => 'float',
     ];
 
     // Order មួយមាន OrderDetail ច្រើន

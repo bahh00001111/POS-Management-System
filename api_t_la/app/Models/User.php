@@ -19,6 +19,12 @@ class User extends Authenticatable
         'password_hash',
         'full_name',
         'is_active',
+        'is_professional',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'is_professional' => 'boolean',
     ];
 
     protected $hidden = [

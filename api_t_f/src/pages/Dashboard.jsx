@@ -208,13 +208,18 @@ export default function Dashboard() {
   const orderTypes = useMemo(() => {
     let dine = 0;
     let takeaway = 0;
+    let delivery = 0;
     orders.forEach((o) => {
       const type = String(o.order_type || '').toUpperCase();
       const hasTable = Boolean(o.table?.table_number);
+      if (type === 'DELIVERY') {
+        delivery += 1;
+        return;
+      }
       if (hasTable || type === 'DINE_IN' || type === 'DINEIN' || type === 'TABLE') dine += 1;
       else takeaway += 1;
     });
-    return { dine, takeaway, total: orders.length };
+    return { dine, takeaway, delivery, total: orders.length };
   }, [orders]);
 
   const recentOrders = useMemo(
@@ -437,7 +442,13 @@ export default function Dashboard() {
                   max={orderTypes.total}
                   colorClass="bg-emerald-500"
                 />
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <ProgressRow
+                  label="Delivery"
+                  value={orderTypes.delivery}
+                  max={orderTypes.total}
+                  colorClass="bg-violet-500"
+                />
+                <div className="grid grid-cols-3 gap-4 pt-2">
                   <div className="bg-blue-50 rounded-xl p-4 text-center">
                     <p className="text-xl font-bold text-blue-700">{orderTypes.dine}</p>
                     <p className="text-xs text-blue-600 font-medium mt-0.5">Dine-in</p>
@@ -445,6 +456,10 @@ export default function Dashboard() {
                   <div className="bg-emerald-50 rounded-xl p-4 text-center">
                     <p className="text-xl font-bold text-emerald-700">{orderTypes.takeaway}</p>
                     <p className="text-xs text-emerald-600 font-medium mt-0.5">Takeaway</p>
+                  </div>
+                  <div className="bg-violet-50 rounded-xl p-4 text-center">
+                    <p className="text-xl font-bold text-violet-700">{orderTypes.delivery}</p>
+                    <p className="text-xs text-violet-600 font-medium mt-0.5">Delivery</p>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, User as UserIcon, Coffee, ChevronDown, Bell } from 'lucide-react';
+import { User as UserIcon, Coffee, Bell } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 
 const getInitials = (name = '') => {
@@ -15,7 +15,7 @@ const ROLE_BADGES = {
 };
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const displayName = user?.full_name || user?.username || 'User';
   const mainRole = user?.roles?.[0] || 'Staff';
@@ -23,7 +23,7 @@ export default function Navbar() {
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center gap-4 sticky top-0 z-10">
-      {/* Brand / page context (mobile) */}
+      {/* Brand (mobile only) */}
       <div className="flex items-center gap-2 lg:hidden">
         <span className="w-9 h-9 rounded-lg bg-amber-600 text-white flex items-center justify-center">
           <Coffee size={18} />
@@ -49,22 +49,22 @@ export default function Navbar() {
       <div className="flex-1" />
 
       {/* Right controls */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         {/* Notification */}
         <button
-          className="relative w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+          className="relative w-10 h-10 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
           title="Notifications"
         >
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          <Bell size={19} />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
         </button>
 
-        <span className="w-px h-6 bg-slate-200" />
+        <span className="w-px h-7 bg-slate-200" />
 
-        {/* User avatar */}
-        <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
-            {displayName === 'User' ? <UserIcon size={16} /> : getInitials(displayName)}
+        {/* User avatar with role */}
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
+            {displayName === 'User' ? <UserIcon size={17} /> : getInitials(displayName)}
           </span>
           <div className="hidden sm:block">
             <p className="text-sm font-semibold text-slate-800 leading-tight">{displayName}</p>
@@ -74,17 +74,7 @@ export default function Navbar() {
               {mainRole}
             </span>
           </div>
-          <ChevronDown className="hidden sm:block text-slate-400" size={16} />
         </div>
-
-        {/* Logout */}
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-semibold transition"
-        >
-          <LogOut size={16} />
-          <span className="hidden md:inline">Logout</span>
-        </button>
       </div>
     </header>
   );

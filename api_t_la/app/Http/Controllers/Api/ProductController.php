@@ -26,6 +26,7 @@ class ProductController extends Controller {
             'product_name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'is_professional' => 'boolean',
         ]);
 
         $imagePath = null;
@@ -38,6 +39,7 @@ class ProductController extends Controller {
             'product_name' => $request->product_name,
             'price' => $request->price,
             'image' => $imagePath,
+            'is_professional' => $request->boolean('is_professional'),
         ]);
 
         return response()->json([
@@ -62,6 +64,7 @@ class ProductController extends Controller {
             'product_name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'is_professional' => 'boolean',
         ]);
 
         $product = Product::findOrFail($id);
@@ -78,6 +81,9 @@ class ProductController extends Controller {
             'product_name' => $request->product_name,
             'price' => $request->price,
             'image' => $product->image,
+            'is_professional' => $request->has('is_professional')
+                ? $request->boolean('is_professional')
+                : $product->is_professional,
         ]);
 
         return response()->json([

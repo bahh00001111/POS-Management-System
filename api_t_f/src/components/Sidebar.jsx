@@ -7,11 +7,12 @@ import {
   FolderTree,
   History,
   Users,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 
 export default function Sidebar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const userRoles = user?.roles || [];
   const mainRole = userRoles[0] || 'Staff';
   const displayName = user?.full_name || user?.username || 'User';
@@ -130,12 +131,23 @@ export default function Sidebar() {
       </nav>
 
       {/* User profile / Footer */}
-      <div className="p-4">
+      <div className="p-4 space-y-2">
         <div className="bg-[#1e293b]/70 rounded-2xl p-4 border border-slate-700/50">
           <p className="text-xs text-slate-400 font-medium">Logged in as</p>
           <p className="text-sm font-bold text-white truncate mt-0.5">{displayName}</p>
           <p className="text-xs font-semibold text-orange-400 mt-0.5">Role: {mainRole}</p>
         </div>
+
+        <span className="block mx-2 h-px bg-slate-700/50" />
+
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-rose-500/15 transition"
+          title="Logout"
+        >
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
       </div>
     </aside>
   );

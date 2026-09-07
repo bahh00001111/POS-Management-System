@@ -16,7 +16,12 @@ class Product extends Model
         'category_id', 
         'product_name',
         'price', 
-        'image'
+        'image',
+        'is_professional'
+    ];
+
+    protected $casts = [
+        'is_professional' => 'boolean',
     ];
 
     public function category() 

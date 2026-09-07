@@ -17,7 +17,10 @@ class OrderDetail extends Model
         'product_id', 
         'quantity', 
         'unit_price',
-        'subtotal'
+        'subtotal',
+        'size',
+        'sugar_level',
+        'remarks'
     ];
 
     // ភ្ជាប់ត្រឡប់ទៅ Order

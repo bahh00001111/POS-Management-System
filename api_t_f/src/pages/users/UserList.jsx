@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
+import { useToast } from "../../context/useToast";
 import {
   Users,
   Plus,
@@ -8,9 +9,13 @@ import {
   Loader2,
   X,
   UserCircle,
+  User,
+  Lock,
+  Shield,
 } from "lucide-react";
 
 export default function UserList() {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,31 +101,49 @@ export default function UserList() {
     try {
       if (isEditing) {
         await axiosClient.put(`/users/${selectedUserId}`, payload);
+        toast.success("User updated successfully", "User Updated");
       } else {
         await axiosClient.post("/users", payload);
+        toast.success("User created successfully", "User Created");
       }
 
       setShowModal(false);
       fetchUsers();
     } catch (err) {
       console.error(err);
-      alert(
+      toast.error(
         err.response?.data?.message ||
           `Failed to ${isEditing ? "update" : "create"} user`,
+        isEditing ? "Update Failed" : "Create Failed",
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (userId) => {
+  const handleDelete = async (u) => {
+    const userId = u.user_id || u.id;
+    if (!userId) return;
+
+    if (isAdminUser(u)) {
+      toast.error(
+        `${u.full_name || u.username} has the Admin role and cannot be deleted`,
+        "Delete Blocked",
+      );
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       await axiosClient.delete(`/users/${userId}`);
+      toast.success("User deleted successfully", "User Deleted");
       fetchUsers();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to delete user");
+      toast.error(
+        err.response?.data?.message || "Failed to delete user",
+        "Delete Failed",
+      );
     }
   };
 
@@ -131,6 +154,13 @@ export default function UserList() {
         typeof r === "string" ? r : r.role_name || r.name || "Unknown",
       )
       .join(", ");
+  };
+
+  const isAdminUser = (u) => {
+    const roles = Array.isArray(u.roles) ? u.roles : [];
+    return roles.some(
+      (r) => (typeof r === "string" ? r : r.role_name || r.name) === "Admin",
+    );
   };
 
   return (
@@ -214,9 +244,14 @@ export default function UserList() {
                           <Edit size={18} />
                         </button>
                         <button
-                          onClick={() => handleDelete(userId)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                          title="Delete User"
+                          onClick={() => handleDelete(u)}
+                          disabled={isAdminUser(u)}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                          title={
+                            isAdminUser(u)
+                              ? "Admin users cannot be deleted"
+                              : "Delete User"
+                          }
                         >
                           <Trash2 size={18} />
                         </button>
@@ -237,100 +272,143 @@ export default function UserList() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-bold text-slate-800">
-                {isEditing ? "Edit User" : "Create New User"}
-              </h3>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-slate-200/60 overflow-hidden">
+            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-amber-600/10 flex items-center justify-center shrink-0">
+                  <UserCircle className="text-amber-600" size={20} />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 leading-tight">
+                    {isEditing ? "Edit User" : "Create New User"}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {isEditing
+                      ? "Update the details of this staff account"
+                      : "Add a new staff account to the system"}
+                  </p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                aria-label="Close"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Full Name
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.full_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, full_name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                />
+                <div className="relative">
+                  <UserCircle
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    required
+                    value={formData.full_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, full_name: e.target.value })
+                    }
+                    placeholder="e.g. Sokha Chan"
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  />
+                </div>
               </div>
+
               <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Username
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                />
+                <div className="relative">
+                  <User
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
+                    placeholder="e.g. sokha.chan"
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  />
+                </div>
               </div>
+
               <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                   Password{" "}
                   {isEditing && (
-                    <span className="text-slate-400 font-normal">
+                    <span className="normal-case tracking-normal text-slate-400 font-medium">
                       (Leave blank to keep existing)
                     </span>
                   )}
                 </label>
-                <input
-                  type="password"
-                  required={!isEditing}
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                  placeholder={isEditing ? "••••••••" : ""}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">
-                  Role
-                </label>
-                <select
-                  value={formData.role_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role_id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 bg-white outline-none"
-                >
-                  <option value="3">Cashier</option>
-                  <option value="2">Manager</option>
-                  <option value="1">Admin</option>
-                </select>
+                <div className="relative">
+                  <Lock
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="password"
+                    required={!isEditing}
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    placeholder={isEditing ? "••••••••" : "Enter a password"}
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="flex gap-3 pt-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                  Role
+                </label>
+                <div className="relative">
+                  <Shield
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <select
+                    value={formData.role_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, role_id: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  >
+                    <option value="3">Cashier</option>
+                    <option value="2">Manager</option>
+                    <option value="1">Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 bg-amber-600 text-white font-bold rounded-xl text-xs flex justify-center items-center gap-2 cursor-pointer"
+                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-sm shadow-amber-600/20 transition flex justify-center items-center gap-2 cursor-pointer disabled:opacity-60"
                 >
-                  {submitting && <Loader2 className="animate-spin" size={14} />}
+                  {submitting && <Loader2 className="animate-spin" size={15} />}
                   {isEditing ? "Update User" : "Save User"}
                 </button>
               </div>

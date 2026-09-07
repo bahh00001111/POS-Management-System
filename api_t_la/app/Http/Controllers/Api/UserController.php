@@ -25,6 +25,7 @@ class UserController extends Controller
             'full_name' => 'required|string|max:255',
             'password'  => 'required|string|min:6', // លុប confirmed ចេញ ប្រសិនបើ UI គ្មាន Password Confirmation
             'is_active' => 'boolean',
+            'is_professional' => 'boolean',
             'role_id'   => 'required|exists:roles,role_id', // ដូរមកជា ID តែមួយវិញ
         ]);
 
@@ -34,6 +35,7 @@ class UserController extends Controller
                 'full_name'     => $validated['full_name'],
                 'password_hash' => Hash::make($validated['password']),
                 'is_active'     => $request->input('is_active', true),
+                'is_professional' => $request->boolean('is_professional'),
             ]);
 
             // Attaching តែមួយ Role
@@ -73,6 +75,7 @@ class UserController extends Controller
             'full_name' => 'sometimes|required|string|max:255',
             'password'  => 'nullable|string|min:6|confirmed',
             'is_active' => 'nullable|boolean',
+            'is_professional' => 'nullable|boolean',
             'role_ids'   => 'nullable|array',
             'role_ids.*' => 'exists:roles,role_id',
         ]);
@@ -80,6 +83,7 @@ class UserController extends Controller
         if (isset($validated['username']))  $user->username = $validated['username'];
         if (isset($validated['full_name'])) $user->full_name = $validated['full_name'];
         if (isset($validated['is_active'])) $user->is_active = $validated['is_active'];
+        if (isset($validated['is_professional'])) $user->is_professional = $validated['is_professional'];
 
         if (!empty($validated['password'])) {
             $user->password_hash = Hash::make($validated['password']);

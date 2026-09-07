@@ -27,6 +27,7 @@ class CategoryController extends Controller
         $request->validate([
             'category_name' => 'required|string|max:255|unique:categories,category_name',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'is_professional' => 'boolean',
         ]);
 
         $imagePath = null;
@@ -37,6 +38,7 @@ class CategoryController extends Controller
         $category = Category::create([
             'category_name' => $request->category_name,
             'image' => $imagePath,
+            'is_professional' => $request->boolean('is_professional'),
         ]);
 
         return response()->json([
@@ -63,6 +65,7 @@ class CategoryController extends Controller
         $request->validate([
             'category_name' => 'required|string|max:255|unique:categories,category_name,' . $id . ',category_id',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp,avif|max:2048',
+            'is_professional' => 'boolean',
         ]);
 
         $category = Category::where('category_id', $id)->firstOrFail();
@@ -77,6 +80,9 @@ class CategoryController extends Controller
         $category->update([
             'category_name' => $request->category_name,
             'image' => $category->image,
+            'is_professional' => $request->has('is_professional')
+                ? $request->boolean('is_professional')
+                : $category->is_professional,
         ]);
 
         return response()->json([
