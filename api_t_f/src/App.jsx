@@ -9,6 +9,7 @@ import ProductList from './pages/products/ProductList';
 import CategoryList from './pages/categories/CategoryList';
 import OrderList from './pages/orders/OrderList';
 import UserList from './pages/users/UserList';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={['Admin', 'Manager']} />}>
             <Route path="/products" element={<ProductList />} />
             <Route path="/categories" element={<CategoryList />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
 
           {/* Admin Only */}

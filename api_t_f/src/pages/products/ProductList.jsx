@@ -15,10 +15,10 @@ const getInitials = (name = "") => {
 
 function ImageWithFallback({ src, alt, initials, size = "w-10 h-10" }) {
   const [failed, setFailed] = useState(false);
-  const base = `${size} rounded-lg ring-1 ring-slate-200 flex-shrink-0`;
+  const base = `${size} rounded-lg ring-1 ring-stone-200 flex-shrink-0`;
   if (!src || failed) {
     return (
-      <span className={`${base} bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-500`}>
+      <span className={`${base} bg-stone-100 flex items-center justify-center text-xs font-semibold text-stone-500`}>
         {initials}
       </span>
     );
@@ -187,39 +187,39 @@ export default function ProductList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span className="w-10 h-10 rounded-xl bg-amber-600/10 flex items-center justify-center shrink-0">
-            <Coffee className="text-amber-600" size={22} />
+          <span className="w-10 h-10 rounded-xl bg-coffee-600/10 flex items-center justify-center shrink-0">
+            <Coffee className="text-coffee-600" size={22} />
           </span>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 leading-tight">Product Management</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Manage drinks, prices, and menu items</p>
+            <h1 className="text-2xl font-bold text-stone-800 leading-tight">Product Management</h1>
+            <p className="text-stone-500 text-sm mt-0.5">Manage drinks, prices, and menu items</p>
           </div>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="inline-flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-sm shadow-amber-600/20 transition"
+          className="inline-flex items-center justify-center gap-2 bg-coffee-600 hover:bg-coffee-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-sm shadow-coffee-600/20 transition"
         >
           <Plus size={18} /> Add Product
         </button>
       </div>
 
       {/* Main Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between px-5 py-4 border-b border-slate-200">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between px-5 py-4 border-b border-stone-200">
           <div className="relative w-full lg:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search products or categories..."
-              className="w-full border border-slate-200 rounded-lg pl-9 pr-8 py-2 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500 text-sm transition"
+              className="w-full border border-stone-200 rounded-lg pl-9 pr-8 py-2 bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-coffee-500/60 focus:border-coffee-500 text-sm transition"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
               >
                 <X size={16} />
               </button>
@@ -236,7 +236,7 @@ export default function ProductList() {
                     clearCategoryFilter();
                   }
                 }}
-                className="appearance-none border border-slate-200 rounded-lg pl-3.5 pr-9 py-2 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500 text-sm text-slate-700"
+                className="appearance-none border border-stone-200 rounded-lg pl-3.5 pr-9 py-2 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-coffee-500/60 focus:border-coffee-500 text-sm text-stone-700"
               >
                 <option value="">All Categories</option>
                 {categories.map((cat) => {
@@ -248,10 +248,10 @@ export default function ProductList() {
                   );
                 })}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" size={15} />
             </div>
             {activeCategory && (
-              <span className="hidden md:inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+              <span className="hidden md:inline-flex items-center gap-1 text-xs font-medium text-coffee-700 bg-coffee-50 border border-coffee-200 rounded-full px-2.5 py-1">
                 {activeCategory.category_name || activeCategory.name}
               </span>
             )}
@@ -262,14 +262,14 @@ export default function ProductList() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-50/80 text-[11px] uppercase tracking-wider text-slate-500">
+              <tr className="bg-stone-50/80 text-[11px] uppercase tracking-wider text-stone-500">
                 <th className="px-5 py-3 font-semibold">Product</th>
                 <th className="px-5 py-3 font-semibold">Category</th>
                 <th className="px-5 py-3 font-semibold text-right">Price</th>
                 <th className="px-5 py-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {filteredProducts.length > 0 ? (
                 paginatedProducts.map((prod) => {
                   const prodId = prod.product_id || prod.id;
@@ -278,23 +278,23 @@ export default function ProductList() {
                     ? `http://localhost:8000/storage/${prod.image}`
                     : prod.image_url;
                   return (
-                    <tr key={prodId} className="hover:bg-slate-50/70 transition">
+                    <tr key={prodId} className="hover:bg-stone-50/70 transition">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <ImageWithFallback src={imgSrc} alt={name} initials={getInitials(name)} />
                           <div className="min-w-0">
-                            <p className="font-medium text-slate-800 leading-tight truncate max-w-[220px]">{name}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">ID: {prodId}</p>
+                            <p className="font-medium text-stone-800 leading-tight truncate max-w-[220px]">{name}</p>
+                            <p className="text-xs text-stone-400 mt-0.5">ID: {prodId}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/10">
+                        <span className="inline-flex items-center rounded-full bg-coffee-50 px-2.5 py-1 text-xs font-medium text-coffee-700 ring-1 ring-inset ring-coffee-600/10">
                           {prod.category?.category_name || prod.category?.name || 'Beverage'}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        <span className="font-semibold text-slate-900 tabular-nums">
+                        <span className="font-semibold text-stone-900 tabular-nums">
                           ${parseFloat(prod.price || 0).toFixed(2)}
                         </span>
                       </td>
@@ -303,14 +303,14 @@ export default function ProductList() {
                           <button
                             onClick={() => handleOpenModal(prod)}
                             title="Edit product"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50/60 border border-blue-100 rounded-lg shadow-sm hover:bg-blue-100 hover:border-blue-200 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-coffee-600 bg-coffee-50/60 border border-coffee-100 rounded-lg shadow-sm hover:bg-coffee-100 hover:border-coffee-200 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-coffee-200 transition"
                           >
                             <Edit size={14} /> Edit
                           </button>
                           <button
                             onClick={() => handleDelete(prodId)}
                             title="Delete product"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50/60 border border-rose-100 rounded-lg shadow-sm hover:bg-rose-100 hover:border-rose-200 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-rose-200 transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-coffee-600 bg-coffee-50/60 border border-coffee-100 rounded-lg shadow-sm hover:bg-coffee-100 hover:border-coffee-200 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-coffee-200 transition"
                           >
                             <Trash2 size={14} /> Delete
                           </button>
@@ -323,8 +323,8 @@ export default function ProductList() {
                 <tr>
                   <td colSpan="4" className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <Search className="text-slate-300" size={28} />
-                      <p className="text-sm text-slate-400">
+                      <Search className="text-stone-300" size={28} />
+                      <p className="text-sm text-stone-400">
                         {activeCategory
                           ? `No products in "${activeCategory.category_name || activeCategory.name}".`
                           : searchTerm
@@ -333,7 +333,7 @@ export default function ProductList() {
                       </p>
                       <button
                         onClick={() => handleOpenModal()}
-                        className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700"
+                        className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-coffee-600 hover:text-coffee-700"
                       >
                         <Plus size={14} /> Add your first product
                       </button>
@@ -346,17 +346,17 @@ export default function ProductList() {
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 bg-slate-50/50">
-          <p className="text-xs text-slate-500">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-stone-200 bg-stone-50/50">
+          <p className="text-xs text-stone-500">
             Showing{' '}
-            <span className="font-medium text-slate-700">
+            <span className="font-medium text-stone-700">
               {pageStart}&ndash;{pageEnd}
             </span>{' '}
-            of <span className="font-medium text-slate-700">{filteredProducts.length}</span> products
+            of <span className="font-medium text-stone-700">{filteredProducts.length}</span> products
             {activeCategory && (
               <button
                 onClick={clearCategoryFilter}
-                className="ml-2 inline-flex items-center gap-1 font-medium text-amber-600 hover:text-amber-700"
+                className="ml-2 inline-flex items-center gap-1 font-medium text-coffee-600 hover:text-coffee-700"
               >
                 <X size={12} /> Clear filter
               </button>
@@ -368,19 +368,19 @@ export default function ProductList() {
 
       {/* Modal Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-slate-200/60 overflow-hidden">
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-stone-200/60 overflow-hidden">
             {/* Header */}
-            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-stone-100">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-amber-600/10 flex items-center justify-center shrink-0">
-                  <Coffee className="text-amber-600" size={20} />
+                <span className="w-10 h-10 rounded-xl bg-coffee-600/10 flex items-center justify-center shrink-0">
+                  <Coffee className="text-coffee-600" size={20} />
                 </span>
                 <div>
-                  <h2 className="text-base font-bold text-slate-800 leading-tight">
+                  <h2 className="text-base font-bold text-stone-800 leading-tight">
                     {editId ? 'Edit Product' : 'Add New Product'}
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-stone-400 mt-0.5">
                     {editId
                       ? 'Update the details of this item'
                       : 'Add a new item to your menu'}
@@ -390,7 +390,7 @@ export default function ProductList() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition"
                 aria-label="Close"
               >
                 <X size={18} />
@@ -399,7 +399,7 @@ export default function ProductList() {
 
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Product Name
                 </label>
                 <input
@@ -408,19 +408,19 @@ export default function ProductList() {
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
                   placeholder="e.g. Iced Latte"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  className="w-full rounded-lg border border-stone-200 bg-white px-3.5 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Category
                 </label>
                 <select
                   required
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  className="w-full rounded-lg border border-stone-200 bg-white px-3.5 py-2.5 text-sm text-stone-800 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                 >
                   <option value="">Select Category</option>
                   {categories.map((cat) => {
@@ -435,7 +435,7 @@ export default function ProductList() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Price ($)
                 </label>
                 <input
@@ -445,25 +445,25 @@ export default function ProductList() {
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="2.50"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  className="w-full rounded-lg border border-stone-200 bg-white px-3.5 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Product Image
                 </label>
-                <label className="group flex flex-col items-center justify-center w-full min-h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center cursor-pointer transition hover:border-amber-400 hover:bg-amber-50/50">
+                <label className="group flex flex-col items-center justify-center w-full min-h-24 rounded-xl border-2 border-dashed border-stone-200 bg-stone-50/50 px-4 py-5 text-center cursor-pointer transition hover:border-coffee-400 hover:bg-coffee-50/50">
                   <ImagePlus
                     size={24}
-                    className="text-slate-400 group-hover:text-amber-600 transition"
+                    className="text-stone-400 group-hover:text-coffee-600 transition"
                   />
-                  <span className="mt-1.5 text-xs font-medium text-slate-500 group-hover:text-amber-700">
+                  <span className="mt-1.5 text-xs font-medium text-stone-500 group-hover:text-coffee-700">
                     {imageFile
                       ? imageFile.name
                       : 'Click to upload product image'}
                   </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
+                  <span className="text-[10px] text-stone-400 mt-0.5">
                     JPG, PNG, WEBP up to 2MB
                   </span>
                   <input
@@ -478,9 +478,9 @@ export default function ProductList() {
                     <img
                       src={previewUrl}
                       alt="Product preview"
-                      className="w-14 h-14 object-cover rounded-lg ring-1 ring-slate-200"
+                      className="w-14 h-14 object-cover rounded-lg ring-1 ring-stone-200"
                     />
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-stone-400">
                       Product image preview
                     </span>
                   </div>
@@ -491,13 +491,13 @@ export default function ProductList() {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-stone-600 border border-stone-200 bg-white hover:bg-stone-100 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-sm shadow-amber-600/20 transition"
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-coffee-600 hover:bg-coffee-700 shadow-sm shadow-coffee-600/20 transition"
                 >
                   {editId ? 'Update Product' : 'Save Product'}
                 </button>

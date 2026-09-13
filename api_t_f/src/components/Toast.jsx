@@ -4,24 +4,24 @@ import { CheckCircle2, XCircle, Info, X } from "lucide-react";
 const VARIANTS = {
   success: {
     icon: CheckCircle2,
-    iconColor: "text-emerald-600",
-    bar: "bg-emerald-500",
-    ring: "ring-emerald-100",
-    title: "text-slate-800",
+    iconColor: "text-coffee-600",
+    bar: "bg-coffee-500",
+    ring: "ring-coffee-100",
+    title: "text-stone-800",
   },
   error: {
     icon: XCircle,
-    iconColor: "text-rose-600",
-    bar: "bg-rose-500",
-    ring: "ring-rose-100",
-    title: "text-rose-800",
+    iconColor: "text-coffee-600",
+    bar: "bg-coffee-500",
+    ring: "ring-coffee-100",
+    title: "text-coffee-800",
   },
   info: {
     icon: Info,
-    iconColor: "text-blue-600",
-    bar: "bg-blue-500",
-    ring: "ring-blue-100",
-    title: "text-slate-800",
+    iconColor: "text-coffee-600",
+    bar: "bg-coffee-500",
+    ring: "ring-coffee-100",
+    title: "text-stone-800",
   },
 };
 
@@ -46,7 +46,7 @@ export default function Toast({ toast, onClose }) {
             {toast.title}
           </p>
           {toast.message && (
-            <p className="mt-0.5 text-sm text-slate-600 break-words">
+            <p className="mt-0.5 text-sm text-stone-600 break-words">
               {toast.message}
             </p>
           )}
@@ -54,7 +54,7 @@ export default function Toast({ toast, onClose }) {
         <button
           type="button"
           onClick={() => onClose(toast.id)}
-          className="text-slate-400 hover:text-slate-600 transition flex-shrink-0"
+          className="text-stone-400 hover:text-stone-600 transition flex-shrink-0"
           aria-label="Close notification"
         >
           <X size={16} />

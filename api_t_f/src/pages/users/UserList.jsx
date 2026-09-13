@@ -50,7 +50,21 @@ export default function UserList() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axiosClient.get("/users");
+        const data = Array.isArray(res.data) ? res.data : res.data.data || [];
+        if (!cancelled) setUsers(data);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleOpenCreateModal = () => {
@@ -167,35 +181,35 @@ export default function UserList() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="text-amber-600" /> Users Management
+          <h1 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
+            <Users className="text-coffee-600" /> Users Management
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-stone-500 text-sm mt-1">
             Manage system staff and access roles
           </p>
         </div>
         <button
           onClick={handleOpenCreateModal}
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-sm flex items-center gap-2 shadow-sm transition cursor-pointer"
+          className="px-4 py-2 bg-coffee-600 hover:bg-coffee-700 text-white font-semibold rounded-xl text-sm flex items-center gap-2 shadow-sm transition cursor-pointer"
         >
           <Plus size={18} /> Add New User
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-sm">
+            <tr className="bg-stone-50 border-b border-stone-100 text-stone-600 text-sm">
               <th className="p-4 font-semibold">User</th>
               <th className="p-4 font-semibold">Username</th>
               <th className="p-4 font-semibold">Role</th>
               <th className="p-4 font-semibold text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+          <tbody className="divide-y divide-stone-100 text-sm text-stone-700">
             {loading ? (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-slate-400">
+                <td colSpan="4" className="p-8 text-center text-stone-400">
                   <span className="inline-flex items-center gap-2">
                     <Loader2 className="animate-spin" /> Loading users...
                   </span>
@@ -207,28 +221,28 @@ export default function UserList() {
                 const roleString = formatRoles(u.roles);
 
                 return (
-                  <tr key={userId} className="hover:bg-slate-50/50 transition">
+                  <tr key={userId} className="hover:bg-stone-50/50 transition">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <UserCircle size={32} className="text-slate-400" />
+                        <UserCircle size={32} className="text-stone-400" />
                         <div>
-                          <p className="font-bold text-slate-800">
+                          <p className="font-bold text-stone-800">
                             {u.full_name}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 font-medium text-slate-600">
+                    <td className="p-4 font-medium text-stone-600">
                       @{u.username}
                     </td>
                     <td className="p-4">
                       <span
                         className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           roleString.includes("Admin")
-                            ? "bg-amber-100 text-amber-700"
+                            ? "bg-coffee-100 text-coffee-700"
                             : roleString.includes("Manager")
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-slate-100 text-slate-700"
+                              ? "bg-coffee-100 text-coffee-700"
+                              : "bg-stone-100 text-stone-700"
                         }`}
                       >
                         {roleString}
@@ -238,7 +252,7 @@ export default function UserList() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleOpenEditModal(u)}
-                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                          className="p-2 text-coffee-600 hover:bg-coffee-50 rounded-lg transition cursor-pointer"
                           title="Edit User"
                         >
                           <Edit size={18} />
@@ -246,7 +260,7 @@ export default function UserList() {
                         <button
                           onClick={() => handleDelete(u)}
                           disabled={isAdminUser(u)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                          className="p-2 text-coffee-500 hover:bg-coffee-50 rounded-lg transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                           title={
                             isAdminUser(u)
                               ? "Admin users cannot be deleted"
@@ -262,7 +276,7 @@ export default function UserList() {
               })
             ) : (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-slate-400">
+                <td colSpan="4" className="p-8 text-center text-stone-400">
                   No users found.
                 </td>
               </tr>
@@ -272,18 +286,18 @@ export default function UserList() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-slate-200/60 overflow-hidden">
-            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-stone-200/60 overflow-hidden">
+            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-stone-100">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-amber-600/10 flex items-center justify-center shrink-0">
-                  <UserCircle className="text-amber-600" size={20} />
+                <span className="w-10 h-10 rounded-xl bg-coffee-600/10 flex items-center justify-center shrink-0">
+                  <UserCircle className="text-coffee-600" size={20} />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-800 leading-tight">
+                  <h3 className="text-base font-bold text-stone-800 leading-tight">
                     {isEditing ? "Edit User" : "Create New User"}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-stone-400 mt-0.5">
                     {isEditing
                       ? "Update the details of this staff account"
                       : "Add a new staff account to the system"}
@@ -293,7 +307,7 @@ export default function UserList() {
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition"
                 aria-label="Close"
               >
                 <X size={18} />
@@ -302,13 +316,13 @@ export default function UserList() {
 
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Full Name
                 </label>
                 <div className="relative">
                   <UserCircle
                     size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
                   />
                   <input
                     type="text"
@@ -318,19 +332,19 @@ export default function UserList() {
                       setFormData({ ...formData, full_name: e.target.value })
                     }
                     placeholder="e.g. Sokha Chan"
-                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                    className="w-full rounded-lg border border-stone-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Username
                 </label>
                 <div className="relative">
                   <User
                     size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
                   />
                   <input
                     type="text"
@@ -340,16 +354,16 @@ export default function UserList() {
                       setFormData({ ...formData, username: e.target.value })
                     }
                     placeholder="e.g. sokha.chan"
-                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                    className="w-full rounded-lg border border-stone-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Password{" "}
                   {isEditing && (
-                    <span className="normal-case tracking-normal text-slate-400 font-medium">
+                    <span className="normal-case tracking-normal text-stone-400 font-medium">
                       (Leave blank to keep existing)
                     </span>
                   )}
@@ -357,7 +371,7 @@ export default function UserList() {
                 <div className="relative">
                   <Lock
                     size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
                   />
                   <input
                     type="password"
@@ -367,26 +381,26 @@ export default function UserList() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     placeholder={isEditing ? "••••••••" : "Enter a password"}
-                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                    className="w-full rounded-lg border border-stone-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Role
                 </label>
                 <div className="relative">
                   <Shield
                     size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
                   />
                   <select
                     value={formData.role_id}
                     onChange={(e) =>
                       setFormData({ ...formData, role_id: e.target.value })
                     }
-                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                    className="w-full rounded-lg border border-stone-200 bg-white pl-9 pr-3.5 py-2.5 text-sm text-stone-800 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                   >
                     <option value="3">Cashier</option>
                     <option value="2">Manager</option>
@@ -399,14 +413,14 @@ export default function UserList() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition cursor-pointer"
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-stone-600 border border-stone-200 bg-white hover:bg-stone-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-sm shadow-amber-600/20 transition flex justify-center items-center gap-2 cursor-pointer disabled:opacity-60"
+                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-coffee-600 hover:bg-coffee-700 shadow-sm shadow-coffee-600/20 transition flex justify-center items-center gap-2 cursor-pointer disabled:opacity-60"
                 >
                   {submitting && <Loader2 className="animate-spin" size={15} />}
                   {isEditing ? "Update User" : "Save User"}

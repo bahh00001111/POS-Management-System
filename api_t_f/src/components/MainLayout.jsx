@@ -5,7 +5,7 @@ import Navbar from './Navbar';
 
 export default function MainLayout() {
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-stone-50 overflow-hidden">
       {/* Sidebar ខាងឆ្វេង */}
       <Sidebar />
 

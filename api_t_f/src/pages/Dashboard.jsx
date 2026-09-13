@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/useAuth';
 import axiosClient from '../api/axiosClient';
 import {
-  LayoutDashboard,
-  Crown,
-  Users,
+  User,
+  Wallet,
+  ShoppingBag,
+  MapPin,
+  Phone,
   DollarSign,
   Receipt,
   Coffee,
@@ -35,10 +37,10 @@ const parseDate = (value) => {
 
 function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, loading }) {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex items-center justify-between">
       <div className="min-w-0">
-        <p className="text-sm text-slate-500">{label}</p>
-        <h3 className="text-2xl font-bold text-slate-800 mt-1 truncate">
+        <p className="text-sm text-stone-500">{label}</p>
+        <h3 className="text-2xl font-bold text-stone-800 mt-1 truncate">
           {loading ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="animate-spin" size={20} /> ...
@@ -47,7 +49,7 @@ function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, loading })
             value
           )}
         </h3>
-        {sub && !loading && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+        {sub && !loading && <p className="text-xs text-stone-400 mt-1">{sub}</p>}
       </div>
       <div className={`p-3 rounded-xl shrink-0 ${iconBg} ${iconColor}`}>
         <Icon />
@@ -58,12 +60,12 @@ function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, loading })
 
 function MiniStat({ icon: Icon, label, value, iconBg, iconColor }) {
   return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+    <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100">
       <div className={`p-2.5 w-fit rounded-xl ${iconBg} ${iconColor}`}>
         <Icon size={18} />
       </div>
-      <p className="text-xs text-slate-500 mt-3">{label}</p>
-      <h3 className="text-xl font-bold text-slate-800 mt-0.5">{value}</h3>
+      <p className="text-xs text-stone-500 mt-3">{label}</p>
+      <h3 className="text-xl font-bold text-stone-800 mt-0.5">{value}</h3>
     </div>
   );
 }
@@ -73,10 +75,10 @@ function ProgressRow({ label, value, max, colorClass }) {
   return (
     <div>
       <div className="flex justify-between text-sm mb-1.5">
-        <span className="font-medium text-slate-700">{label}</span>
-        <span className="font-bold text-slate-800">{value}</span>
+        <span className="font-medium text-stone-700">{label}</span>
+        <span className="font-bold text-stone-800">{value}</span>
       </div>
-      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -87,6 +89,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState({ products: [], categories: [], orders: [] });
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState({ store_name: '', exchange_rate: 4000 });
 
   const roleList = user?.roles || [];
   const isAdmin = roleList.includes('Admin');
@@ -99,12 +102,19 @@ export default function Dashboard() {
       axiosClient.get('/products'),
       axiosClient.get('/categories'),
       axiosClient.get('/orders'),
+      axiosClient.get('/settings'),
     ])
-      .then(([prodRes, catRes, ordRes]) => {
+      .then(([prodRes, catRes, ordRes, setRes]) => {
         setData({
           products: prodRes.status === 'fulfilled' ? toArray(prodRes.value.data) : [],
           categories: catRes.status === 'fulfilled' ? toArray(catRes.value.data) : [],
           orders: ordRes.status === 'fulfilled' ? toArray(ordRes.value.data) : [],
+        });
+        const settingsData =
+          setRes.status === 'fulfilled' ? setRes.value.data?.data || {} : {};
+        setSettings({
+          store_name: settingsData.store_name || '',
+          exchange_rate: parseFloat(settingsData.exchange_rate) || 4000,
         });
       })
       .catch((err) => console.error('Dashboard data fetch error:', err))
@@ -143,6 +153,14 @@ export default function Dashboard() {
         return d && d.toLocaleDateString() === todayKey;
       })
       .reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+  }, [orders]);
+
+  const todayOrders = useMemo(() => {
+    const todayKey = new Date().toLocaleDateString();
+    return orders.filter((o) => {
+      const d = parseDate(o.created_at);
+      return d && d.toLocaleDateString() === todayKey;
+    }).length;
   }, [orders]);
 
   const weekRevenue = useMemo(() => {
@@ -235,41 +253,82 @@ export default function Dashboard() {
   );
 
   const maxCategory = Math.max(...categoryBreakdown.map(([, v]) => v), 0);
-  const todayLabel = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+
+  const bannerDate = new Date()
+    .toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+    .toUpperCase();
+  const welcomeName = user?.full_name || user?.username || 'there';
+  const storeName = settings?.store_name || 'Sok Coffee';
+  const storeAddress = settings?.store_address || '';
+  const storePhone = settings?.store_phone || '';
+  const receiptFooter = settings?.receipt_footer_text || '';
+  const exchangeRate = Number(settings?.exchange_rate) || 4000;
+  const todayKhr = Math.round(todayRevenue * exchangeRate).toLocaleString();
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <LayoutDashboard className="text-amber-600" /> Dashboard
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-[2.5rem] border border-coffee-700/60 shadow-2xl shadow-coffee-950/30 bg-gradient-to-br from-coffee-950 via-coffee-900 to-coffee-600 p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        {/* decorative circles */}
+        <div className="pointer-events-none absolute -right-16 -top-20 w-72 h-72 rounded-full border-[28px] border-white/10" />
+        <div className="pointer-events-none absolute right-44 -bottom-24 w-64 h-64 rounded-full border-[24px] border-coffee-300/20" />
+        <div className="pointer-events-none absolute right-24 top-1/2 -translate-y-1/2 w-44 h-44 rounded-full bg-white/5" />
+
+        <div className="relative max-w-xl">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-coffee-950/80 text-white text-[11px] font-bold tracking-wide">
+            <User size={14} /> {primaryRole.toUpperCase()} • {bannerDate}
+          </span>
+          <h1 className="mt-4 text-3xl lg:text-4xl font-extrabold text-white leading-tight">
+            Welcome back, {welcomeName}
           </h1>
-          <p className="text-slate-500 text-sm">
-            Welcome back, {user?.full_name || user?.username} · {primaryRole} · {todayLabel}
+          <p className="mt-2 text-sm lg:text-base text-white/80">
+            Welcome to {storeName} &mdash; here&apos;s how your coffee shop is performing
+            today. Every great brew starts with a great day.
           </p>
+          {(storeAddress || storePhone || receiptFooter) && (
+            <div className="mt-3 space-y-2">
+              {(storeAddress || storePhone) && (
+                <div className="flex flex-wrap gap-2">
+                  {storeAddress && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-amber-100/80 text-xs font-medium">
+                      <MapPin size={13} /> {storeAddress}
+                    </span>
+                  )}
+                  {storePhone && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-amber-100/80 text-xs font-medium">
+                      <Phone size={13} /> {storePhone}
+                    </span>
+                  )}
+                </div>
+              )}
+              {receiptFooter && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-amber-100/80 text-xs font-medium">
+                  <Receipt size={13} /> Receipt Footer: {receiptFooter}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <span
-          className={`w-fit px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 bg-white border shadow-sm ${
-            isAdmin
-              ? 'text-amber-700 border-amber-200'
-              : isManager
-                ? 'text-blue-700 border-blue-200'
-                : 'text-slate-500 border-slate-200'
-          }`}
-        >
-          {isAdmin ? (
-            <Crown size={16} className="text-amber-600" />
-          ) : (
-            <Users size={16} className={isManager ? 'text-blue-600' : 'text-slate-400'} />
-          )}
-          {primaryRole}
-        </span>
+        <div className="relative flex flex-col sm:flex-row items-stretch gap-4 shrink-0">
+          <div className="bg-coffee-100/25 backdrop-blur-md border border-white/20 rounded-3xl px-6 py-5 min-w-[170px] shadow-lg shadow-coffee-950/10">
+            <div className="flex items-center gap-2 text-coffee-800 text-[11px] font-bold tracking-widest">
+              <Wallet size={15} /> TODAY&apos;S REVENUE
+            </div>
+            <p className="mt-2 text-3xl font-extrabold text-coffee-950">
+              ${todayRevenue.toFixed(2)}
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-coffee-800/80">
+              ≈ {todayKhr} KHR
+            </p>
+          </div>
+          <div className="bg-coffee-100/25 backdrop-blur-md border border-white/20 rounded-3xl px-6 py-5 min-w-[150px] shadow-lg shadow-coffee-950/10">
+            <div className="flex items-center gap-2 text-coffee-800 text-[11px] font-bold tracking-widest">
+              <ShoppingBag size={15} /> ORDERS TODAY
+            </div>
+            <p className="mt-2 text-3xl font-extrabold text-coffee-950">{todayOrders}</p>
+          </div>
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -279,8 +338,8 @@ export default function Dashboard() {
           label="Total Revenue"
           value={`$${totalRevenue.toFixed(2)}`}
           sub={`Avg $${avgOrderValue.toFixed(2)} per order`}
-          iconBg="bg-emerald-100"
-          iconColor="text-emerald-600"
+          iconBg="bg-coffee-100"
+          iconColor="text-coffee-600"
           loading={loading}
         />
         <StatCard
@@ -288,8 +347,8 @@ export default function Dashboard() {
           label="Total Orders"
           value={orders.length}
           sub={`${itemsSold} items sold`}
-          iconBg="bg-purple-100"
-          iconColor="text-purple-600"
+          iconBg="bg-coffee-100"
+          iconColor="text-coffee-600"
           loading={loading}
         />
         <StatCard
@@ -297,8 +356,8 @@ export default function Dashboard() {
           label="Products"
           value={products.length}
           sub="Active menu items"
-          iconBg="bg-amber-100"
-          iconColor="text-amber-600"
+          iconBg="bg-coffee-100"
+          iconColor="text-coffee-600"
           loading={loading}
         />
         <StatCard
@@ -306,86 +365,86 @@ export default function Dashboard() {
           label="Categories"
           value={categories.length}
           sub="Menu categories"
-          iconBg="bg-blue-100"
-          iconColor="text-blue-600"
+          iconBg="bg-coffee-100"
+          iconColor="text-coffee-600"
           loading={loading}
         />
       </div>
 
       {/* Revenue Overview + Top Sellers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
-              <TrendingUp className="text-amber-600" size={20} /> Revenue — Last 7 Days
+            <h2 className="font-bold text-stone-800 flex items-center gap-2">
+              <TrendingUp className="text-coffee-600" size={20} /> Revenue — Last 7 Days
             </h2>
             <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
               isAdmin
-                ? 'bg-amber-50 text-amber-700'
+                ? 'bg-coffee-50 text-coffee-700'
                 : isManager
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'bg-slate-100 text-slate-600'
+                  ? 'bg-coffee-50 text-coffee-700'
+                  : 'bg-stone-100 text-stone-600'
             }`}>
               {primaryRole} View
             </span>
           </div>
           {loading ? (
-            <div className="flex justify-center items-center h-40 text-slate-400">
+            <div className="flex justify-center items-center h-40 text-stone-400">
               <Loader2 className="animate-spin mr-2" size={20} /> Loading chart...
             </div>
           ) : (
             <div className="flex items-end gap-3 h-40">
               {weekRevenue.map((d, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-2">
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-stone-700">
                     {d.rev > 0 ? `$${d.rev.toFixed(0)}` : ''}
                   </span>
                   <div
                     className={`w-full rounded-t-lg transition-all group-hover:opacity-80 ${
                       isAdmin
-                        ? 'bg-amber-500'
+                        ? 'bg-coffee-500'
                         : isManager
-                          ? 'bg-blue-500'
-                          : 'bg-slate-400'
+                          ? 'bg-coffee-500'
+                          : 'bg-coffee-400'
                     } ${d.rev > 0 ? 'hover:opacity-80' : ''}`}
                     style={{
                       height: maxWeekRev > 0 ? `${Math.max((d.rev / maxWeekRev) * 100, 4)}%` : '4%',
                     }}
                   />
-                  <span className="text-xs text-slate-400 font-medium">{d.label}</span>
+                  <span className="text-xs text-stone-400 font-medium">{d.label}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-5">
-            <BarChart3 className="text-amber-600" size={20} /> Top Selling Products
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+          <h2 className="font-bold text-stone-800 flex items-center gap-2 mb-5">
+            <BarChart3 className="text-coffee-600" size={20} /> Top Selling Products
           </h2>
           {loading ? (
-            <div className="flex justify-center items-center h-40 text-slate-400">
+            <div className="flex justify-center items-center h-40 text-stone-400">
               <Loader2 className="animate-spin mr-2" size={20} /> Loading...
             </div>
           ) : topProducts.length > 0 ? (
             <div className="space-y-4">
               {topProducts.map((item, idx) => (
                 <div key={item.name} className="flex items-center gap-3">
-                  <span className="w-7 h-7 shrink-0 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
+                  <span className="w-7 h-7 shrink-0 rounded-lg bg-stone-100 text-stone-600 text-xs font-bold flex items-center justify-center">
                     {idx + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-800 text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="font-semibold text-stone-800 text-sm truncate">{item.name}</p>
+                    <p className="text-xs text-stone-400">
                       {item.qty} sold · ${item.revenue.toFixed(2)}
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-amber-600">{item.qty}×</span>
+                  <span className="text-xs font-bold text-coffee-600">{item.qty}×</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-slate-400 text-sm text-center py-10">No sales data yet.</p>
+            <p className="text-stone-400 text-sm text-center py-10">No sales data yet.</p>
           )}
         </div>
       </div>
@@ -394,12 +453,12 @@ export default function Dashboard() {
       {isAdmin ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Category Breakdown */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-5">
-              <PieChart className="text-amber-600" size={20} /> Menu by Category
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+            <h2 className="font-bold text-stone-800 flex items-center gap-2 mb-5">
+              <PieChart className="text-coffee-600" size={20} /> Menu by Category
             </h2>
             {loading ? (
-              <div className="flex justify-center items-center h-40 text-slate-400">
+              <div className="flex justify-center items-center h-40 text-stone-400">
                 <Loader2 className="animate-spin mr-2" size={20} /> Loading...
               </div>
             ) : categoryBreakdown.length > 0 ? (
@@ -410,22 +469,22 @@ export default function Dashboard() {
                     label={name}
                     value={count}
                     max={maxCategory}
-                    colorClass="bg-amber-500"
+                    colorClass="bg-coffee-500"
                   />
                 ))}
               </div>
             ) : (
-              <p className="text-slate-400 text-sm text-center py-10">No products found.</p>
+              <p className="text-stone-400 text-sm text-center py-10">No products found.</p>
             )}
           </div>
 
           {/* Order Type Breakdown */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-5">
-              <Utensils className="text-amber-600" size={20} /> Order Types
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+            <h2 className="font-bold text-stone-800 flex items-center gap-2 mb-5">
+              <Utensils className="text-coffee-600" size={20} /> Order Types
             </h2>
             {loading ? (
-              <div className="flex justify-center items-center h-40 text-slate-400">
+              <div className="flex justify-center items-center h-40 text-stone-400">
                 <Loader2 className="animate-spin mr-2" size={20} /> Loading...
               </div>
             ) : orderTypes.total > 0 ? (
@@ -434,37 +493,37 @@ export default function Dashboard() {
                   label="Dine-in"
                   value={orderTypes.dine}
                   max={orderTypes.total}
-                  colorClass="bg-blue-500"
+                  colorClass="bg-coffee-500"
                 />
                 <ProgressRow
                   label="Takeaway"
                   value={orderTypes.takeaway}
                   max={orderTypes.total}
-                  colorClass="bg-emerald-500"
+                  colorClass="bg-coffee-500"
                 />
                 <ProgressRow
                   label="Delivery"
                   value={orderTypes.delivery}
                   max={orderTypes.total}
-                  colorClass="bg-violet-500"
+                  colorClass="bg-coffee-500"
                 />
                 <div className="grid grid-cols-3 gap-4 pt-2">
-                  <div className="bg-blue-50 rounded-xl p-4 text-center">
-                    <p className="text-xl font-bold text-blue-700">{orderTypes.dine}</p>
-                    <p className="text-xs text-blue-600 font-medium mt-0.5">Dine-in</p>
+                  <div className="bg-coffee-50 rounded-xl p-4 text-center">
+                    <p className="text-xl font-bold text-coffee-700">{orderTypes.dine}</p>
+                    <p className="text-xs text-coffee-600 font-medium mt-0.5">Dine-in</p>
                   </div>
-                  <div className="bg-emerald-50 rounded-xl p-4 text-center">
-                    <p className="text-xl font-bold text-emerald-700">{orderTypes.takeaway}</p>
-                    <p className="text-xs text-emerald-600 font-medium mt-0.5">Takeaway</p>
+                  <div className="bg-coffee-50 rounded-xl p-4 text-center">
+                    <p className="text-xl font-bold text-coffee-700">{orderTypes.takeaway}</p>
+                    <p className="text-xs text-coffee-600 font-medium mt-0.5">Takeaway</p>
                   </div>
-                  <div className="bg-violet-50 rounded-xl p-4 text-center">
-                    <p className="text-xl font-bold text-violet-700">{orderTypes.delivery}</p>
-                    <p className="text-xs text-violet-600 font-medium mt-0.5">Delivery</p>
+                  <div className="bg-coffee-50 rounded-xl p-4 text-center">
+                    <p className="text-xl font-bold text-coffee-700">{orderTypes.delivery}</p>
+                    <p className="text-xs text-coffee-600 font-medium mt-0.5">Delivery</p>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="text-slate-400 text-sm text-center py-10">No orders yet.</p>
+              <p className="text-stone-400 text-sm text-center py-10">No orders yet.</p>
             )}
           </div>
         </div>
@@ -474,36 +533,36 @@ export default function Dashboard() {
             icon={CalendarCheck}
             label="Today's Revenue"
             value={`$${todayRevenue.toFixed(2)}`}
-            iconBg="bg-emerald-100"
-            iconColor="text-emerald-600"
+            iconBg="bg-coffee-100"
+            iconColor="text-coffee-600"
           />
           <MiniStat
             icon={Target}
             label="Average Order Value"
             value={`$${avgOrderValue.toFixed(2)}`}
-            iconBg="bg-purple-100"
-            iconColor="text-purple-600"
+            iconBg="bg-coffee-100"
+            iconColor="text-coffee-600"
           />
           <MiniStat
             icon={Package}
             label="Total Items Sold"
             value={itemsSold}
-            iconBg="bg-amber-100"
-            iconColor="text-amber-600"
+            iconBg="bg-coffee-100"
+            iconColor="text-coffee-600"
           />
         </div>
       ) : null}
 
       {/* Recent Orders */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
         <div className="p-6 pb-4">
-          <h2 className="font-bold text-slate-800 flex items-center gap-2">
-            <Clock className="text-amber-600" size={20} /> Recent Orders
+          <h2 className="font-bold text-stone-800 flex items-center gap-2">
+            <Clock className="text-coffee-600" size={20} /> Recent Orders
           </h2>
         </div>
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-y border-slate-100 text-slate-600 text-sm">
+            <tr className="bg-stone-50 border-y border-stone-100 text-stone-600 text-sm">
               <th className="p-4">Order</th>
               <th className="p-4">Table / Type</th>
               <th className="p-4">Date & Time</th>
@@ -511,10 +570,10 @@ export default function Dashboard() {
               <th className="p-4 text-right">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700 text-sm">
+          <tbody className="divide-y divide-stone-100 text-stone-700 text-sm">
             {loading ? (
               <tr>
-                <td colSpan="5" className="p-8 text-center text-slate-400">
+                <td colSpan="5" className="p-8 text-center text-stone-400">
                   <span className="inline-flex items-center gap-2">
                     <Loader2 className="animate-spin" size={18} /> Loading orders...
                   </span>
@@ -524,25 +583,25 @@ export default function Dashboard() {
               recentOrders.map((order) => {
                 const orderId = order.order_id || order.id;
                 return (
-                  <tr key={orderId} className="hover:bg-slate-50/50 transition">
-                    <td className="p-4 font-bold text-slate-800">#{orderId}</td>
+                  <tr key={orderId} className="hover:bg-stone-50/50 transition">
+                    <td className="p-4 font-bold text-stone-800">#{orderId}</td>
                     <td className="p-4">
-                      <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                        <Utensils size={14} className="text-amber-600" />
+                      <span className="flex items-center gap-1.5 font-medium text-stone-700">
+                        <Utensils size={14} className="text-coffee-600" />
                         {order.table?.table_number ||
                           order.order_type ||
                           (order.table_id ? `Table ${order.table_id}` : 'TAKEAWAY')}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-500">
+                    <td className="p-4 text-stone-500">
                       {order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A'}
                     </td>
-                    <td className="p-4 font-bold text-amber-600">
+                    <td className="p-4 font-bold text-coffee-600">
                       ${parseFloat(order.total_amount || 0).toFixed(2)}
                     </td>
                     <td className="p-4 text-right">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Completed
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-coffee-50 text-coffee-700 rounded-full text-xs font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-coffee-500" /> Completed
                       </span>
                     </td>
                   </tr>
@@ -550,7 +609,7 @@ export default function Dashboard() {
               })
             ) : (
               <tr>
-                <td colSpan="5" className="p-8 text-center text-slate-400">
+                <td colSpan="5" className="p-8 text-center text-stone-400">
                   No orders found yet.
                 </td>
               </tr>

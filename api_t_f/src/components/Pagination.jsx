@@ -19,9 +19,9 @@ export default function Pagination({ page, totalPages, onPageChange }) {
 
   const btn =
     'w-9 h-9 inline-flex items-center justify-center rounded-lg text-xs font-medium transition select-none cursor-pointer';
-  const defaultCls = `${btn} text-slate-600 hover:bg-slate-100`;
-  const activeCls = `${btn} bg-amber-600 text-white shadow-sm shadow-amber-600/20`;
-  const disabledCls = `${btn} text-slate-300 cursor-not-allowed`;
+  const defaultCls = `${btn} text-stone-600 hover:bg-stone-100`;
+  const activeCls = `${btn} bg-coffee-600 text-white shadow-sm shadow-coffee-600/20`;
+  const disabledCls = `${btn} text-stone-300 cursor-not-allowed`;
 
   return (
     <nav className="flex items-center gap-1" aria-label="Pagination">
@@ -38,7 +38,7 @@ export default function Pagination({ page, totalPages, onPageChange }) {
         item.value === null ? (
           <span
             key={item.key}
-            className="w-9 h-9 inline-flex items-center justify-center text-xs text-slate-400 select-none"
+            className="w-9 h-9 inline-flex items-center justify-center text-xs text-stone-400 select-none"
           >
             &hellip;
           </span>
