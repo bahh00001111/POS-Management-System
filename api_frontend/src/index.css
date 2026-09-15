@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-coffee-50: #fdf6ee;
+  --color-coffee-100: #f8e8d3;
+  --color-coffee-200: #f0cf9f;
+  --color-coffee-300: #e6b067;
+  --color-coffee-400: #d98a37;
+  --color-coffee-500: #c26714;
+  --color-coffee-600: #963800;
+  --color-coffee-700: #7d3106;
+  --color-coffee-800: #652704;
+  --color-coffee-900: #522102;
+  --color-coffee-950: #351002;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(1rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.toast-enter {
+  animation: toast-in 0.25s ease-out;
+}
+
+/* លាក់ native password reveal/copy buttons (Edge/Chrome) ដើម្បីកុំជាន់គ្នាជាមួយ Eye toggle ផ្ទាល់ខ្លួន */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+  width: 0;
+  height: 0;
+  visibility: hidden;
+}
