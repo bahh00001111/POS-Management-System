@@ -41,6 +41,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders/summary', [OrderController::class, 'summary']);
         Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/settings', [SettingController::class, 'index']);
+        // KHQR (Option 1: order-first flow with mock payment simulation)
+        Route::get('/khqr/status/{reference}', [KhqrController::class, 'checkStatus']);
+        Route::post('/khqr/generate', [KhqrController::class, 'generateQr']);
+        Route::post('/khqr/mock-pay', [KhqrController::class, 'mockSuccess']);
+        // Legacy KHQR payload/status endpoints
         Route::post('/khqr/payload', [KhqrController::class, 'payload']);
         Route::get('/khqr/status', [KhqrController::class, 'status']);
     });

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axiosClient from '../api/axiosClient';
 import { useToast } from '../context/useToast';
-import { QRCodeCanvas } from 'qrcode.react';
+import KhqrPaymentModal from '../components/KhqrPaymentModal';
 import { ShoppingBag, Plus, Minus, Trash2, CreditCard, Search, X, Printer, LayoutGrid, Coffee, CupSoda, Soup, Sandwich, Bean, IceCreamCone, CakeSlice, Tag, UtensilsCrossed, Package, Bike, BadgePercent, Store, Smartphone, User, Phone, MapPin, Hash, Wallet, Banknote, QrCode, Loader2 } from 'lucide-react';
 
 const CATEGORY_ICONS = {
@@ -107,10 +107,9 @@ export default function PosTerminal() {
   const [amountCurrency, setAmountCurrency] = useState('USD'); // 'USD' | 'KHR'
   const [amountReceived, setAmountReceived] = useState('');
 
-  // KHQR State
-  const [khqr, setKhqr] = useState(null);
-  const [khqrStatus, setKhqrStatus] = useState('PENDING');
-  const khqrPlacedRef = useRef(false);
+  // KHQR State (Option 1: order-first flow)
+  const [kqOrder, setKqOrder] = useState(null);
+  const [khqrCurrency, setKhqrCurrency] = useState('KHR'); // 'USD' | 'KHR' (cashier selects before generating QR)
 
   // តម្លៃ Settings ដែលបានកាត់ថ្លៃសម្រាប់វិក្កយបត្រ
   const receiptSettings = useMemo(
@@ -328,16 +327,75 @@ export default function PosTerminal() {
     setPaymentMethod('CASH');
     setAmountCurrency('USD');
     setAmountReceived('');
-    setKhqr(null);
-    setKhqrStatus('PENDING');
-    khqrPlacedRef.current = false;
+    setKqOrder(null);
+    setKhqrCurrency((settings?.merchant_currency || 'KHR').toUpperCase() === 'KHR' ? 'KHR' : 'USD');
     setShowPayment(true);
+  };
+
+  // Show the receipt for a successfully paid order
+  const showReceiptForOrder = (order) => {
+    setCompletedOrder({
+      queueNumber: order?.queue_number || `#${String(order?.order_id || order?.id || 8).padStart(2, '0')}`,
+      orderType: ORDER_TYPES.find((t) => t.key === orderType)?.label || orderType,
+      paymentLabel: PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label || paymentMethod,
+      items: cart.map((item) => ({
+        name: item.product_name || item.name,
+        categoryName: item.category?.category_name || item.category?.name || 'Coffee',
+        qty: item.quantity,
+        price: item.price,
+        sugar: item.sugar_level,
+        size: item.size,
+        remarks: item.remarks,
+      })),
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
+      deliveryInfo:
+        orderType === 'DELIVERY'
+          ? delivery.method === 'IN_HOUSE'
+            ? {
+                method: 'In-House',
+                customerName: delivery.customerName,
+                phoneNumber: delivery.phoneNumber,
+                address: delivery.deliveryAddress,
+              }
+            : {
+                method: 'Third-Party App',
+                platform: delivery.platform,
+                orderId: delivery.externalOrderId,
+              }
+          : null,
+      discountAmount: discountAmount,
+      total: finalTotal,
+      date: new Date().toLocaleString(),
+    });
+
+    setShowReceipt(true);
+    setCart([]);
+    setDiscount({ active: false, type: 'PERCENT', value: '' });
+    setDelivery({
+      method: 'IN_HOUSE',
+      customerName: '',
+      phoneNumber: '',
+      deliveryAddress: '',
+      deliveryFee: '',
+      platform: 'Foodpanda',
+      externalOrderId: '',
+    });
+    setSelectedCategory('ALL');
+    fetchData();
+    window.dispatchEvent(new CustomEvent('pos-stock-alert'));
+  };
+
+  // KHQR payment confirmed: server marked the order PAID, show the receipt
+  const handleKqPaid = () => {
+    if (!kqOrder) return;
+    showReceiptForOrder(kqOrder);
+    setKqOrder(null);
   };
 
   // ៦. Confirm Payment + Submit Order
   const handleConfirmPayment = async () => {
     if (cart.length === 0 || loading) return;
-    khqrPlacedRef.current = true;
 
     const rawReceived = parseFloat(amountReceived) || 0;
     const received = amountCurrency === 'KHR' ? rawReceived / receiptSettings.rate : rawReceived;
@@ -349,6 +407,7 @@ export default function PosTerminal() {
     const payload = {
       order_type: orderType,
       payment_method: paymentMethod,
+      payment_status: paymentMethod === 'KHQR' ? 'UNPAID' : 'PAID',
       amount_received: paymentMethod === 'CASH' ? received : null,
       change_due: paymentMethod === 'CASH' ? Math.max(0, received - finalTotal) : null,
       subtotal: subtotal,
@@ -385,56 +444,13 @@ export default function PosTerminal() {
       const res = await axiosClient.post('/orders', payload);
       const newOrder = res.data?.data || res.data;
 
-      setCompletedOrder({
-        queueNumber: newOrder?.queue_number || `#${String(newOrder?.order_id || newOrder?.id || 8).padStart(2, '0')}`,
-        orderType: ORDER_TYPES.find((t) => t.key === orderType)?.label || orderType,
-        paymentLabel: PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label || paymentMethod,
-        items: cart.map((item) => ({
-          name: item.product_name || item.name,
-          categoryName: item.category?.category_name || item.category?.name || 'Coffee',
-          qty: item.quantity,
-          price: item.price,
-          sugar: item.sugar_level,
-          size: item.size,
-          remarks: item.remarks,
-        })),
-        subtotal: subtotal,
-        deliveryFee: deliveryFee,
-        deliveryInfo:
-          orderType === 'DELIVERY'
-            ? delivery.method === 'IN_HOUSE'
-              ? {
-                  method: 'In-House',
-                  customerName: delivery.customerName,
-                  phoneNumber: delivery.phoneNumber,
-                  address: delivery.deliveryAddress,
-                }
-              : {
-                  method: 'Third-Party App',
-                  platform: delivery.platform,
-                  orderId: delivery.externalOrderId,
-                }
-            : null,
-        discountAmount: discountAmount,
-        total: finalTotal,
-        date: new Date().toLocaleString(),
-      });
-
-      setShowReceipt(true);
-      setCart([]);
-      setDiscount({ active: false, type: 'PERCENT', value: '' });
-      setDelivery({
-        method: 'IN_HOUSE',
-        customerName: '',
-        phoneNumber: '',
-        deliveryAddress: '',
-        deliveryFee: '',
-        platform: 'Foodpanda',
-        externalOrderId: '',
-      });
-      setSelectedCategory('ALL');
-      fetchData();
-      window.dispatchEvent(new CustomEvent('pos-stock-alert'));
+      // KHQR: keep the cart and open the payment modal to scan the QR.
+      // The order is UNPAID until the payment is confirmed.
+      if (paymentMethod === 'KHQR') {
+        setKqOrder(newOrder);
+      } else {
+        showReceiptForOrder(newOrder);
+      }
     } catch (err) {
       console.error('Checkout error:', err.response?.data);
       setShowPayment(true);
@@ -443,35 +459,6 @@ export default function PosTerminal() {
       setLoading(false);
     }
   };
-
-  // Keep the latest confirm handler accessible from the polling effect
-  const handleConfirmPaymentRef = useRef(handleConfirmPayment);
-  useEffect(() => {
-    handleConfirmPaymentRef.current = handleConfirmPayment;
-  });
-
-  // ពិនិត្យស្ថានភាពបង់ប្រាក់ KHQR រៀងរាល់ 4 វិនាទី ពេលបើក Dialog
-  useEffect(() => {
-    if (!showPayment || paymentMethod !== 'KHQR' || !khqr?.reference) return;
-
-    const timer = setInterval(async () => {
-      try {
-        const res = await axiosClient.get('/khqr/status', {
-          params: { reference: khqr.reference },
-        });
-        const status = res.data?.data?.status;
-        setKhqrStatus(status);
-        if (status === 'PAID' && !khqrPlacedRef.current) {
-          khqrPlacedRef.current = true;
-          await handleConfirmPaymentRef.current();
-        }
-      } catch (err) {
-        console.error('KHQR status error:', err);
-      }
-    }, 4000);
-
-    return () => clearInterval(timer);
-  }, [showPayment, paymentMethod, khqr?.reference]);
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -521,39 +508,12 @@ export default function PosTerminal() {
     ];
   }, [finalTotal, receiptSettings.rate]);
 
-  // KHQR generation values
-  const khqrCurrency =
-    (settings?.merchant_currency || 'KHR').toUpperCase() === 'KHR' ? 'KHR' : 'USD';
+  // KHQR amount depends on the cashier-selected currency
+  // USD  → raw USD total; KHR → total converted via the exchange rate
   const khqrAmount =
     khqrCurrency === 'KHR'
       ? Math.max(0, Math.round(finalTotal * receiptSettings.rate))
       : finalTotal;
-
-  // បង្កើត KHQR Payload ឡើងវិញពេលជ្រើស Method KHQR
-  useEffect(() => {
-    if (!showPayment || paymentMethod !== 'KHQR') return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await axiosClient.post('/khqr/payload', {
-          amount: khqrAmount,
-          currency: khqrCurrency,
-        });
-        if (!cancelled) {
-          setKhqr(res.data?.data || null);
-          setKhqrStatus(res.data?.data?.status || 'PENDING');
-          khqrPlacedRef.current = false;
-        }
-      } catch (err) {
-        console.error('KHQR payload error:', err.response?.data);
-        if (!cancelled) setKhqr(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [showPayment, paymentMethod, khqrAmount, khqrCurrency]);
 
   return (
     <div className="flex h-full bg-stone-100 overflow-hidden relative">
@@ -1209,46 +1169,56 @@ export default function PosTerminal() {
               </div>
             )}
 
-            {/* KHQR Dynamic QR */}
+            {/* KHQR Payment */}
             {paymentMethod === 'KHQR' && (
               <div className="rounded-2xl border border-dashed border-coffee-300 bg-coffee-50/40 p-4 flex flex-col items-center gap-3">
-                {khqr?.payload ? (
-                  <div className="bg-white rounded-2xl p-3 shadow-sm">
-                    <div className="relative">
-                      <QRCodeCanvas
-                        value={khqr.payload}
-                        size={184}
-                        level="M"
-                        bgColor="#FFFFFF"
-                        fgColor="#1A1A1A"
-                        marginSize={2}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="bg-[#173a5f] text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full shadow-md">
-                          KHQR
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-center text-[10px] text-stone-500 mt-1.5 font-sans">
-                      {Number(khqr.amount || 0).toLocaleString()} {khqr.currency} • Ref: {khqr.reference}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-stone-500 py-6 text-center font-sans">
-                    KHQR unavailable. Set your Bakong merchant account in Settings first.
-                  </p>
-                )}
-                <div className="text-center">
-                  <p className="text-xs font-bold text-stone-800">Scan to Pay</p>
-                  <p className="text-[11px] text-stone-500">Bakong / KHQR Mobile Payment</p>
+                <div className="flex items-center gap-2">
+                  <QrCode size={22} className="text-coffee-600" />
+                  <p className="text-xs font-bold text-stone-800">Bakong / KHQR Mobile Payment</p>
                 </div>
-                {khqrStatus === 'PAID' ? (
-                  <p className="text-xs font-bold text-green-600">✓ Payment received — placing order...</p>
-                ) : (
-                  khqr?.payload && (
-                    <p className="text-[11px] text-stone-500 font-sans">Waiting for payment…</p>
-                  )
-                )}
+
+                {/* Currency Toggle: USD vs KHR */}
+                <div className="w-full">
+                  <p className="text-[10px] font-bold text-stone-500 mb-1.5 text-center font-sans">
+                    Payment Currency
+                  </p>
+                  <div className="grid grid-cols-2 gap-1 rounded-xl bg-stone-200/70 p-1">
+                    {[
+                      { key: 'USD', label: '$ USD' },
+                      { key: 'KHR', label: '៛ KHR' },
+                    ].map((c) => {
+                      const amount = c.key === 'KHR' ? khqrAmount : finalTotal;
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => setKhqrCurrency(c.key)}
+                          className={`rounded-lg py-2 text-center transition cursor-pointer ${
+                            khqrCurrency === c.key
+                              ? 'bg-coffee-600 text-white shadow-sm'
+                              : 'bg-transparent text-stone-600 hover:bg-white/60'
+                          }`}
+                        >
+                          <span className="block text-xs font-extrabold">{c.label}</span>
+                          <span
+                            className={`block text-[10px] font-sans ${
+                              khqrCurrency === c.key ? 'text-coffee-100' : 'text-stone-400'
+                            }`}
+                          >
+                            {c.key === 'KHR'
+                              ? `${amount.toLocaleString()}៛`
+                              : `$${amount.toFixed(2)}`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-stone-500 font-sans">
+                  Press "Confirm &amp; Place Order" to create the (UNPAID) order and show the payment
+                  QR code. The order is marked PAID automatically once the transfer is confirmed.
+                </p>
               </div>
             )}
 
@@ -1458,6 +1428,17 @@ export default function PosTerminal() {
           </div>
         </div>
       )}
+
+      {/* KHQR Payment Modal (Option 1: order-first + mock payment) */}
+      <KhqrPaymentModal
+        open={kqOrder !== null}
+        orderId={kqOrder?.order_id ?? kqOrder?.id}
+        amount={khqrAmount}
+        currency={khqrCurrency}
+        merchantName={receiptSettings.storeName}
+        onClose={() => setKqOrder(null)}
+        onSuccess={handleKqPaid}
+      />
     </div>
   );
 }
