@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('queue_number')->nullable();
             $table->enum('order_type', ['DINE_IN', 'TAKEAWAY'])->default('TAKEAWAY');
             $table->enum('order_status', ['PENDING', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'])->default('PENDING');
-            $table->enum('payment_status', ['UNPAID', 'PAID'])->default('PAID');
+            $table->enum('payment_status', ['UNPAID', 'PAID'])->default('UNPAID');
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->foreignId('user_id')->nullable()->constrained('users', 'user_id')->onDelete('set null');
             $table->timestamp('order_date')->useCurrent();

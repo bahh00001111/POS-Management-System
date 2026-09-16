@@ -24,6 +24,12 @@ const SEGMENTS = [
   { key: 'all', label: 'All' },
 ];
 
+const PAYMENT_SEGMENTS = [
+  { key: 'PAID', label: 'Paid' },
+  { key: 'UNPAID', label: 'Unpaid' },
+  { key: 'all', label: 'All' },
+];
+
 export default function OrderList() {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -33,6 +39,7 @@ export default function OrderList() {
   const [perPage, setPerPage] = useState(10);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [paymentFilter, setPaymentFilter] = useState('PAID');
 
   // តម្លៃបញ្ចូល (Draft) និងតម្លៃដែលបានអនុវត្ត (Applied) ដាច់ដោយឡែកពីគ្នា
   const [draftStart, setDraftStart] = useState('');
@@ -50,7 +57,7 @@ export default function OrderList() {
     (async () => {
       setLoading(true);
       try {
-        const params = { page, per_page: perPage };
+        const params = { page, per_page: perPage, payment_status: paymentFilter };
         if (appliedStart) params.start_date = appliedStart;
         if (appliedEnd) params.end_date = appliedEnd;
         const res = await axiosClient.get('/orders', { params });
@@ -72,7 +79,7 @@ export default function OrderList() {
     return () => {
       cancelled = true;
     };
-  }, [page, perPage, appliedStart, appliedEnd]);
+  }, [page, perPage, appliedStart, appliedEnd, paymentFilter]);
 
   const from = total === 0 ? 0 : (page - 1) * perPage + 1;
   const to = Math.min(page * perPage, total);
@@ -249,6 +256,33 @@ export default function OrderList() {
         )}
       </div>
 
+      {/* Payment Status Filter — default to Paid (Order History = completed sales) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-stone-700">
+            <ShoppingBag size={16} className="text-coffee-600" />
+            Payment Status
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 bg-stone-50 border border-stone-200 rounded-xl p-1.5 w-fit">
+            {PAYMENT_SEGMENTS.map((seg) => (
+              <button
+                key={seg.key}
+                onClick={() => { setPaymentFilter(seg.key); setPage(1); }}
+                className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                  paymentFilter === seg.key
+                    ? 'bg-coffee-600 text-white shadow-sm shadow-coffee-600/20'
+                    : 'text-stone-600 hover:bg-stone-100'
+                }`}
+              >
+                {seg.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-stone-400">
+            Only {paymentFilter === 'all' ? 'orders of any status' : `${paymentFilter === 'PAID' ? 'paid' : 'unpaid'} orders`} are shown. An
+            UNPAID order only becomes PAID after the bank/cash confirms payment.
+          </p>
+        </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -256,6 +290,7 @@ export default function OrderList() {
               <th className="p-4">Order ID</th>
               <th className="p-4">Table / Type</th>
               <th className="p-4">Date & Time</th>
+              <th className="p-4">Payment</th>
               <th className="p-4">Total Amount</th>
               <th className="p-4 text-right">Action</th>
             </tr>
@@ -279,6 +314,22 @@ export default function OrderList() {
                         {order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A'}
                       </span>
                     </td>
+                    <td className="p-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          order.payment_status === 'PAID'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-amber-50 text-amber-600'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            order.payment_status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`}
+                        />
+                        {order.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
+                      </span>
+                    </td>
                     <td className="p-4 font-bold text-coffee-600">
                       ${parseFloat(order.total_amount || 0).toFixed(2)}
                     </td>
@@ -295,7 +346,7 @@ export default function OrderList() {
               })
             ) : (
               <tr>
-                <td colSpan="5" className="p-6 text-center text-stone-400">
+                <td colSpan="6" className="p-6 text-center text-stone-400">
                   {loading ? 'Loading orders...' : 'No past orders found.'}
                 </td>
               </tr>
@@ -371,9 +422,20 @@ export default function OrderList() {
                   {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : 'N/A'}
                 </p>
               </div>
-              <span className="px-3 py-1 bg-coffee-50 text-coffee-700 font-bold rounded-xl text-sm">
-                {selectedOrder.table?.table_number || selectedOrder.order_type}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-coffee-50 text-coffee-700 font-bold rounded-xl text-sm">
+                  {selectedOrder.table?.table_number || selectedOrder.order_type}
+                </span>
+                <span
+                  className={`px-3 py-1 font-bold rounded-xl text-sm ${
+                    selectedOrder.payment_status === 'PAID'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-amber-50 text-amber-600'
+                  }`}
+                >
+                  {selectedOrder.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">

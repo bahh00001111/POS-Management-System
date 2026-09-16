@@ -4,6 +4,8 @@ import { useToast } from '../context/useToast';
 import KhqrPaymentModal from '../components/KhqrPaymentModal';
 import { ShoppingBag, Plus, Minus, Trash2, CreditCard, Search, X, Printer, LayoutGrid, Coffee, CupSoda, Soup, Sandwich, Bean, IceCreamCone, CakeSlice, Tag, UtensilsCrossed, Package, Bike, BadgePercent, Store, Smartphone, User, Phone, MapPin, Hash, Wallet, Banknote, QrCode, Loader2 } from 'lucide-react';
 
+const STORAGE_BASE = `${new URL(axiosClient.defaults.baseURL).origin}/storage/`;
+
 const CATEGORY_ICONS = {
   Coffee: Coffee,
   Espresso: Coffee,
@@ -580,7 +582,7 @@ export default function PosTerminal() {
                 }`}
               >
                 <img
-                  src={prod.image ? `http://localhost:8000/storage/${prod.image}` : 'https://placehold.co/150?text=Coffee'}
+                  src={prod.image ? `${STORAGE_BASE}${prod.image}` : 'https://placehold.co/150?text=Coffee'}
                   alt={prod.product_name}
                   className="w-full h-32 object-cover rounded-xl mb-3"
                 />
@@ -920,7 +922,7 @@ export default function PosTerminal() {
 
             <div className="flex items-center gap-4">
               <img
-                src={selectedProduct.image ? `http://localhost:8000/storage/${selectedProduct.image}` : 'https://placehold.co/150?text=Coffee'}
+                src={selectedProduct.image ? `${STORAGE_BASE}${selectedProduct.image}` : 'https://placehold.co/150?text=Coffee'}
                 alt={selectedProduct.product_name}
                 className="w-24 h-24 object-cover rounded-xl border"
               />

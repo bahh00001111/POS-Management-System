@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import axiosClient from '../api/axiosClient';
 import { QRCodeCanvas } from 'qrcode.react';
 import { X, Loader2, QrCode, CheckCircle2, Zap } from 'lucide-react';
+import bakongSymbol from '../assets/bakonglogo/images.png';
 
 /**
  * KHQR Payment Modal (Option 1 — order-first flow).
@@ -203,9 +204,13 @@ export default function KhqrPaymentModal({
                     marginSize={2}
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="bg-[#173a5f] text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full shadow-md">
-                      KHQR
-                    </span>
+                    <div className="bg-white rounded-full p-1 shadow-sm">
+                      <img
+                        src={bakongSymbol}
+                        alt="Bakong"
+                        className="h-[38px] w-[38px] rounded-full object-cover"
+                      />
+                    </div>
                   </div>
                 </div>
                 <p className="text-center text-[10px] text-stone-500 mt-1.5 font-sans">

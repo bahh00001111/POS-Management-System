@@ -58,7 +58,9 @@ class ProductController extends Controller {
     }
 
     public function show($id) {
-        $product = Product::with('category', 'supplier')->findOrFail($id);
+        $product = Cache::remember("products.{$id}", 300, function () use ($id) {
+            return Product::with('category', 'supplier')->findOrFail($id);
+        });
         $product->image_url = $product->image ? url('storage/' . $product->image) : null;
 
         return response()->json([
@@ -100,6 +102,7 @@ class ProductController extends Controller {
         ]);
 
         Cache::forget('products.with_relations');
+        Cache::forget("products.{$id}");
 
         // ពេលដាក់ស្តុកវិញ (stock > 0) សូមបិទការជូនដំណឹងស្តុកអស់/ជិតអស់របស់ផលិតផលនេះដោយស្វ័យប្រវត្តិ
         if ((int) $product->stock > 0) {
@@ -125,6 +128,7 @@ class ProductController extends Controller {
         $product->delete();
 
         Cache::forget('products.with_relations');
+        Cache::forget("products.{$id}");
 
         return response()->json([
             'message' => 'Product deleted successfully'

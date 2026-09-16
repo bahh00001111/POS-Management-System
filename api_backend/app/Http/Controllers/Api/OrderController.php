@@ -22,7 +22,15 @@ class OrderController extends Controller {
         $perPage = (int) $request->get('per_page', 50);
         $perPage = max(1, min($perPage, 100));
 
+        // Order History default only shows actually-paid orders; pass
+        // payment_status=UNPAID or payment_status=all to see the rest.
+        $paymentStatus = $request->get('payment_status', 'PAID');
+        if ($paymentStatus === 'all') {
+            $paymentStatus = null;
+        }
+
         $orders = Order::with(['details.product', 'user'])
+                        ->when($paymentStatus, fn ($query) => $query->where('payment_status', $paymentStatus))
                         ->when($start, fn ($query) => $query->where('created_at', '>=', $start->startOfDay()))
                         ->when($end, fn ($query) => $query->where('created_at', '<=', $end->endOfDay()))
                         ->latest()
@@ -272,7 +280,7 @@ class OrderController extends Controller {
                 'queue_number'       => $queueNumber,
                 'order_type'         => $request->order_type,
                 'order_status'       => 'PENDING',
-                'payment_status'     => in_array($request->payment_status, ['UNPAID', 'PAID']) ? $request->payment_status : 'PAID',
+                'payment_status'     => in_array($request->payment_status, ['UNPAID', 'PAID']) ? $request->payment_status : 'UNPAID',
                 'subtotal'           => $subtotal,
                 'discount_type'      => $request->discount_type,
                 'discount_value'     => $request->discount_value !== null ? (float) $request->discount_value : null,
@@ -321,7 +329,9 @@ class OrderController extends Controller {
     }
 
     public function show($id) {
-        $order = Order::with(['details.product', 'user'])->findOrFail($id);
+        $order = \Illuminate\Support\Facades\Cache::remember("orders.{$id}", 300, function () use ($id) {
+            return Order::with(['details.product', 'user'])->findOrFail($id);
+        });
 
         return response()->json([
             'success' => true,

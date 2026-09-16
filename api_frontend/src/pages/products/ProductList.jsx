@@ -6,6 +6,7 @@ import { Plus, Edit, Trash2, Coffee, Search, X, ChevronDown, ImagePlus } from 'l
 import Pagination from '../../components/Pagination';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
+const STORAGE_BASE = `${new URL(axiosClient.defaults.baseURL).origin}/storage/`;
 const PAGE_SIZE = 10;
 
 const getInitials = (name = "") => {
@@ -83,7 +84,7 @@ export default function ProductList() {
       setSupplierId(product.supplier_id || '');
       setPreviewUrl(
         product.image 
-          ? `http://localhost:8000/storage/${product.image}` 
+          ? `${STORAGE_BASE}${product.image}` 
           : (product.image_url || '')
       );
       setImageFile(null);
@@ -306,7 +307,7 @@ export default function ProductList() {
                   const prodId = prod.product_id || prod.id;
                   const name = prod.product_name || prod.name || 'Untitled';
                   const imgSrc = prod.image
-                    ? `http://localhost:8000/storage/${prod.image}`
+                    ? `${STORAGE_BASE}${prod.image}`
                     : prod.image_url;
                   const stockQty = Number(prod.stock || 0);
                   const stockBadge =
