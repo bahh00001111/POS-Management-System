@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\KhqrController;
+use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\NotificationController;
@@ -45,6 +46,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/khqr/status/{reference}', [KhqrController::class, 'checkStatus']);
         Route::post('/khqr/generate', [KhqrController::class, 'generateQr']);
         Route::post('/khqr/mock-pay', [KhqrController::class, 'mockSuccess']);
+        // Bakong Open API payment verification (POS polls this to confirm)
+        Route::post('/payments/verify', [PaymentController::class, 'verify']);
         // Legacy KHQR payload/status endpoints
         Route::post('/khqr/payload', [KhqrController::class, 'payload']);
         Route::get('/khqr/status', [KhqrController::class, 'status']);

@@ -30,9 +30,9 @@ class KhqrController extends Controller
             ];
         }
 
-        if (!preg_match('/^[a-z0-9][a-z0-9._-]*@[a-z]{2,}$/', $accountId)) {
+        if (!preg_match('/^[a-z0-9][a-z0-9._-]*@[a-z0-9][a-z0-9._-]*$/', $accountId)) {
             return [
-                'message' => 'The Bakong account ID must use the "username@bank" format, e.g. "sokha@aba" or "012345678@acleda", without spaces or special characters.',
+                'message' => 'The Bakong account ID must use the "username@bank" format, e.g. "10824705@acleda", "champey_svay@bkrt00", or "sokha@aba", without spaces or special characters.',
                 'errors' => ['bakong_account_id' => ["Invalid Bakong account ID format: '{$accountId}'"]],
             ];
         }
@@ -53,6 +53,7 @@ class KhqrController extends Controller
             'order_id' => 'required|integer|exists:orders,order_id',
             'amount' => 'required|numeric|min:0.01',
             'currency' => 'required|in:USD,KHR',
+            'expiration_timestamp' => 'nullable|integer',
         ]);
 
         $order = Order::findOrFail($data['order_id']);
@@ -86,13 +87,14 @@ class KhqrController extends Controller
             'merchant_name' => trim($setting->merchant_name) ?: trim($setting->store_name) ?: 'COFFEE POS',
             'merchant_city' => trim((string) $setting->merchant_city),
             'category_code' => $setting->merchant_category_code,
+            'expiration_timestamp' => $request->input('expiration_timestamp'),
         ];
 
         // Output validation: build can only return a payload when the data
         // passes the NBC rules. On failure, log the full detail and reply
         // with a clear JSON error instead of emitting an invalid QR string.
         try {
-            $payload = $khqr->build($payloadData);
+            $generated = $khqr->build($payloadData);
         } catch (\InvalidArgumentException $e) {
             Log::error('KHQR generation rejected', [
                 'reference' => $reference,
@@ -105,6 +107,9 @@ class KhqrController extends Controller
                 'errors' => ['merchant' => [json_decode($e->getMessage(), true)]],
             ], 422);
         }
+
+        $payload = $generated['payload'];
+        $md5 = $generated['md5'];
 
         // Debugging: capture the exact raw string that will be rendered as a QR.
         $khqr->logPayload($payload, [
@@ -120,6 +125,7 @@ class KhqrController extends Controller
             'currency' => $currency,
             'status' => 'PENDING',
             'payload' => $payload,
+            'md5' => $md5,
         ]);
 
         return response()->json([
@@ -127,6 +133,8 @@ class KhqrController extends Controller
             'data' => [
                 'reference' => $transaction->reference,
                 'payload' => $payload,
+                'md5' => $transaction->md5,
+                'expires_at_ms' => $generated['expires_at_ms'] ?? null,
                 'amount' => (float) $transaction->amount,
                 'currency' => $transaction->currency,
                 'status' => $transaction->status,
@@ -206,6 +214,7 @@ class KhqrController extends Controller
         $data = $request->validate([
             'amount' => 'required|numeric|min:0',
             'currency' => 'required|in:USD,KHR',
+            'expiration_timestamp' => 'nullable|integer',
         ]);
 
         $setting = Setting::orderBy('settings_id')->first();
@@ -233,10 +242,11 @@ class KhqrController extends Controller
             'merchant_name' => trim($setting->merchant_name) ?: trim($setting->store_name) ?: 'COFFEE POS',
             'merchant_city' => trim((string) $setting->merchant_city),
             'category_code' => $setting->merchant_category_code,
+            'expiration_timestamp' => $request->input('expiration_timestamp'),
         ];
 
         try {
-            $payload = $khqr->build($payloadData);
+            $generated = $khqr->build($payloadData);
         } catch (\InvalidArgumentException $e) {
             Log::error('KHQR generation rejected', [
                 'reference' => $reference,
@@ -248,6 +258,9 @@ class KhqrController extends Controller
                 'errors' => ['merchant' => [json_decode($e->getMessage(), true)]],
             ], 422);
         }
+
+        $payload = $generated['payload'];
+        $md5 = $generated['md5'];
 
         // Debugging: capture the exact raw string that will be rendered as a QR.
         $khqr->logPayload($payload, [
@@ -261,6 +274,7 @@ class KhqrController extends Controller
             'currency' => $currency,
             'status' => 'PENDING',
             'payload' => $payload,
+            'md5' => $md5,
         ]);
 
         return response()->json([
@@ -268,12 +282,14 @@ class KhqrController extends Controller
             'data' => [
                 'reference' => $transaction->reference,
                 'payload' => $payload,
+                'md5' => $transaction->md5,
+                'expires_at_ms' => $generated['expires_at_ms'] ?? null,
                 'amount' => (float) $transaction->amount,
                 'currency' => $transaction->currency,
                 'status' => $transaction->status,
                 'merchant_name' => trim($setting->merchant_name) ?: trim((string) $setting->store_name),
             ],
-        ], 200);
+        ], 201);
     }
 
     /**

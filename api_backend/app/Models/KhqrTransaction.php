@@ -16,6 +16,7 @@ class KhqrTransaction extends Model
         'currency',
         'status',
         'payload',
+        'md5',
     ];
 
     protected $casts = [

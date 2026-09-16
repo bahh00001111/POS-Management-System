@@ -31,6 +31,7 @@ export default function KhqrPaymentModal({
   const [khqr, setKhqr] = useState(null);
   const [status, setStatus] = useState('PENDING');
   const [error, setError] = useState('');
+  const [verifyNotice, setVerifyNotice] = useState('');
   const [generating, setGenerating] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const successNotifiedRef = useRef(false);
@@ -41,6 +42,7 @@ export default function KhqrPaymentModal({
     setKhqr(null);
     setStatus('PENDING');
     setError('');
+    setVerifyNotice('');
     successNotifiedRef.current = false;
     setSimulating(false);
   }, []);
@@ -85,28 +87,42 @@ export default function KhqrPaymentModal({
     }
   }, [onSuccess]);
 
-  // 2. Poll payment status every 3 seconds
+  // 2. Verify the payment against the Bakong Open API every 3 seconds.
+  //    /khqr/status only reads the local database and NEVER sees money that
+  //    arrived at the merchant's Bakong account — that is why real payments
+  //    used to leave this modal stuck showing the same QR. /payments/verify
+  //    asks NBC directly (check_transaction_by_md5) and flips the order to
+  //    PAID in the DB the moment the bank confirms the transfer.
   useEffect(() => {
-    if (!open || !khqr?.reference || isPaid) return;
+    if (!open || !khqr?.md5 || !orderId || isPaid) return;
 
     const timer = setInterval(async () => {
       try {
-        const res = await axiosClient.get(`/khqr/status/${khqr.reference}`);
-        const nextStatus = res.data?.data?.status;
-        setStatus(nextStatus);
-        if (nextStatus === 'SUCCESS' || nextStatus === 'PAID') {
+        const res = await axiosClient.post('/payments/verify', {
+          md5: khqr.md5,
+          order_id: orderId,
+        });
+        setVerifyNotice('');
+        if (res.data?.data?.paid === true) {
           await complete();
         }
       } catch (err) {
-        if (err.response?.status === 404) {
+        const statusCode = err.response?.status;
+        // 502 = bank gateway error, 503 = BAKONG_OPEN_API_TOKEN not set on
+        // the server. Keep polling (it self-heals) but tell the operator.
+        if (statusCode === 502 || statusCode === 503) {
+          const detail =
+            err.response?.data?.message || (statusCode === 503 ? 'Bakong Open API token is not configured.' : '');
+          setVerifyNotice(detail ? `${detail} Still trying…` : 'Payment gateway unavailable — still trying…');
+        } else if (statusCode === 404) {
           clearInterval(timer);
-          setError('Payment request expired. Please try again.');
+          setError('Payment request not found. Please try again.');
         }
       }
     }, 3000);
 
     return () => clearInterval(timer);
-  }, [open, khqr?.reference, isPaid, complete]);
+  }, [open, khqr?.md5, orderId, isPaid, complete]);
 
   // 3. Simulate a successful bank payment (mock only)
   const handleSimulatePaid = async () => {
@@ -197,29 +213,38 @@ export default function KhqrPaymentModal({
                 </p>
               </div>
 
-              <div className="text-center">
+              <div className="text-center gap-1 flex flex-col">
                 <p className="text-xs font-bold text-stone-800">{merchantName}</p>
                 <p className="text-[11px] text-stone-500 font-sans">
-                  Waiting for payment — checking every 3s…
+                  Waiting for payment — confirming with the bank every 3s…
                 </p>
+                {verifyNotice && (
+                  <p className="text-[11px] font-bold text-amber-600 text-center font-sans">
+                    {verifyNotice}
+                  </p>
+                )}
               </div>
 
-              {/* Mock payment simulator */}
-              <button
-                onClick={handleSimulatePaid}
-                disabled={simulating}
-                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50"
-              >
-                {simulating ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" /> Simulating…
-                  </>
-                ) : (
-                  <>
-                    <Zap size={15} /> Simulate Paid (Mock)
-                  </>
-                )}
-              </button>
+              {/* Mock payment simulator — only available in development builds; a
+                  cashier must never be able to mark an order paid without
+                  real Bakong confirmation. */}
+              {import.meta.env.DEV && (
+                <button
+                  onClick={handleSimulatePaid}
+                  disabled={simulating}
+                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {simulating ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" /> Simulating…
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={15} /> Simulate Paid (Mock)
+                    </>
+                  )}
+                </button>
+              )}
             </>
           ) : (
             <div className="py-8 text-center">
