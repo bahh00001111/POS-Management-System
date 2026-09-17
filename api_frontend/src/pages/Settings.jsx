@@ -10,6 +10,11 @@ import {
   FileText,
   Save,
   QrCode,
+  Bot,
+  SendHorizontal,
+  MessageCircle,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 
 const DEFAULT_SETTINGS = {
@@ -24,12 +29,18 @@ const DEFAULT_SETTINGS = {
   merchantCity: '',
   merchantCategoryCode: '5812',
   merchantCurrency: 'KHR',
+  telegramBotToken: '',
+  telegramChatId: '',
+  telegramEnabled: true,
+  telegramNotifyOrders: true,
+  telegramNotifyPayments: true,
 };
 
 export default function Settings() {
   const toast = useToast();
   const [form, setForm] = useState(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -48,6 +59,11 @@ export default function Settings() {
           merchantCity: d.merchant_city || '',
           merchantCategoryCode: d.merchant_category_code || '5812',
           merchantCurrency: d.merchant_currency || 'KHR',
+          telegramBotToken: d.telegram_bot_token || '',
+          telegramChatId: d.telegram_chat_id || '',
+          telegramEnabled: d.telegram_enabled != null ? Boolean(d.telegram_enabled) : true,
+          telegramNotifyOrders: d.telegram_notify_orders != null ? Boolean(d.telegram_notify_orders) : true,
+          telegramNotifyPayments: d.telegram_notify_payments != null ? Boolean(d.telegram_notify_payments) : true,
         });
       } catch (err) {
         console.error('Error loading settings:', err);
@@ -58,6 +74,26 @@ export default function Settings() {
 
   const update = (key) => (e) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const toggle = (key) => () =>
+    setForm((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const sendTelegramTest = async () => {
+    setTesting(true);
+    try {
+      await axiosClient.post('/settings/send-telegram-test');
+      toast.success('Test message sent to your Telegram chat', 'Telegram Test');
+    } catch (err) {
+      console.error('Error sending Telegram test:', err);
+      const detail = err.response?.data?.error;
+      toast.error(
+        detail || err.response?.data?.message || 'Could not send the Telegram test message',
+        'Telegram Test Failed',
+      );
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -75,6 +111,11 @@ export default function Settings() {
         merchant_city: form.merchantCity,
         merchant_category_code: form.merchantCategoryCode,
         merchant_currency: form.merchantCurrency,
+        telegram_bot_token: form.telegramBotToken,
+        telegram_chat_id: form.telegramChatId,
+        telegram_enabled: form.telegramEnabled,
+        telegram_notify_orders: form.telegramNotifyOrders,
+        telegram_notify_payments: form.telegramNotifyPayments,
       });
       toast.success('Settings saved successfully', 'Settings Saved');
     } catch (err) {
@@ -95,8 +136,32 @@ export default function Settings() {
       icon ? 'pl-9' : ''
     }`;
 
+  const toggleRow = (checked, onChange, title, desc) => (
+    <div className="flex items-start justify-between gap-4 py-2">
+      <div>
+        <p className="text-sm font-semibold text-stone-700">{title}</p>
+        {desc && <p className="text-[11px] text-stone-400 mt-0.5">{desc}</p>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={onChange}
+        className={`relative w-11 h-6 rounded-full transition cursor-pointer shrink-0 ${
+          checked ? 'bg-emerald-500' : 'bg-stone-300'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+            checked ? 'translate-x-5' : ''
+          }`}
+        />
+      </button>
+    </div>
+  );
+
   return (
-    <div className="p-6 pb-12 flex flex-col min-h-full">
+    <div className="p-3 sm:p-6 pb-12 flex flex-col min-h-full">
       {/* Header */}
       <div className="flex items-start gap-3">
         <span className="w-10 h-10 rounded-xl bg-coffee-600/10 flex items-center justify-center shrink-0">
@@ -331,6 +396,105 @@ export default function Settings() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Telegram Bot Notifications */}
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+          <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-stone-100">
+            <span className="w-9 h-9 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0">
+              <Bot className="text-sky-600" size={18} />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-stone-800 leading-tight">
+                Telegram Bot Notifications
+              </h2>
+              <p className="text-xs text-stone-400 mt-0.5">
+                Get new-sale and KHQR payment confirmations on your phone
+              </p>
+            </div>
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <label className={labelCls}>Bot Token</label>
+              <div className="relative">
+                <Bot
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                />
+                <input
+                  type="text"
+                  value={form.telegramBotToken}
+                  onChange={update('telegramBotToken')}
+                  placeholder="e.g. 123456789:AAF... (from @BotFather)"
+                  className={inputCls(true)}
+                />
+              </div>
+              <p className="text-[11px] text-stone-400 mt-1">
+                Create a bot with @BotFather and paste the token here. Never share it publicly.
+              </p>
+            </div>
+            <div>
+              <label className={labelCls}>Chat ID</label>
+              <div className="relative">
+                <MessageCircle
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                />
+                <input
+                  type="text"
+                  value={form.telegramChatId}
+                  onChange={update('telegramChatId')}
+                  placeholder="e.g. 123456789 or -1001234567890"
+                  className={inputCls(true)}
+                />
+              </div>
+              <p className="text-[11px] text-stone-400 mt-1">
+                Message your bot once (e.g. <span className="font-mono">/start</span>), then grab the numeric ID from
+                your bot via the <span className="font-mono">getUpdates</span> API or <span className="font-mono">@userinfobot</span>.
+              </p>
+            </div>
+
+            <div className="border-t border-stone-100 pt-1 space-y-1">
+              {toggleRow(
+                form.telegramEnabled,
+                toggle('telegramEnabled'),
+                'Enable Telegram notifications',
+                'Master switch — pause all bot messages without removing your token',
+              )}
+              {toggleRow(
+                form.telegramNotifyOrders,
+                toggle('telegramNotifyOrders'),
+                'New sale / order alerts',
+                'Send a message every time a new order is created',
+              )}
+              {toggleRow(
+                form.telegramNotifyPayments,
+                toggle('telegramNotifyPayments'),
+                'KHQR payment confirmations',
+                'Send a message when a Bakong KHQR payment is confirmed',
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-1 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={sendTelegramTest}
+                disabled={testing || saving}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 transition disabled:opacity-60 cursor-pointer shadow-sm shadow-sky-600/20"
+              >
+                {testing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <SendHorizontal size={16} />
+                )}
+                {testing ? 'Testing...' : 'Send Test Message'}
+              </button>
+              <span className="inline-flex items-center gap-1 text-[11px] text-stone-400">
+                <CheckCircle2 size={13} className="text-emerald-500" />
+                Save settings first, then test
+              </span>
             </div>
           </div>
         </div>

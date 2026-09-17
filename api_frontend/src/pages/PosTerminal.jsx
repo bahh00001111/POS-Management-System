@@ -109,6 +109,9 @@ export default function PosTerminal() {
   const [amountCurrency, setAmountCurrency] = useState('USD'); // 'USD' | 'KHR'
   const [amountReceived, setAmountReceived] = useState('');
 
+  // Cart drawer state (mobile / tablet only, < lg)
+  const [cartOpen, setCartOpen] = useState(false);
+
   // KHQR State (Option 1: order-first flow)
   const [kqOrder, setKqOrder] = useState(null);
   const [khqrCurrency, setKhqrCurrency] = useState('KHR'); // 'USD' | 'KHR' (cashier selects before generating QR)
@@ -326,6 +329,7 @@ export default function PosTerminal() {
   // ៥. Open Payment Modal (do NOT submit the order yet)
   const openPaymentModal = () => {
     if (cart.length === 0 || loading) return;
+    setCartOpen(false);
     setPaymentMethod('CASH');
     setAmountCurrency('USD');
     setAmountReceived('');
@@ -336,6 +340,18 @@ export default function PosTerminal() {
 
   // Show the receipt for a successfully paid order
   const showReceiptForOrder = (order) => {
+    // ធ្វើបច្ចុប្បន្នភាពស្តុកពីចម្លើយរបស់ Server តែម្តង (ជំនួសឲ្យការទាញយក Catalog ទាំងមូលវិញ)
+    const stockMap = order?.updated_stock;
+    if (stockMap) {
+      setProducts((prev) =>
+        prev.map((prod) => {
+          const prodId = prod.product_id || prod.id;
+          if (stockMap[prodId] == null) return prod;
+          return { ...prod, stock: stockMap[prodId] };
+        })
+      );
+    }
+
     setCompletedOrder({
       queueNumber: order?.queue_number || `#${String(order?.order_id || order?.id || 8).padStart(2, '0')}`,
       orderType: ORDER_TYPES.find((t) => t.key === orderType)?.label || orderType,
@@ -384,7 +400,6 @@ export default function PosTerminal() {
       externalOrderId: '',
     });
     setSelectedCategory('ALL');
-    fetchData();
     window.dispatchEvent(new CustomEvent('pos-stock-alert'));
   };
 
@@ -520,7 +535,7 @@ export default function PosTerminal() {
   return (
     <div className="flex h-full bg-stone-100 overflow-hidden relative">
       {/* ផ្នែកខាងឆ្វេង៖ Main Menu Layout */}
-      <div className="flex-1 flex flex-col h-full p-6 overflow-hidden gap-4">
+      <div className="flex-1 min-w-0 flex flex-col h-full p-3 sm:p-4 lg:p-6 overflow-hidden gap-3 lg:gap-4 pb-16 lg:pb-6">
         
         {/* ១. Search Input (shrink-0 ការពារកុំឱ្យរួមទំហំ) */}
         <div className="shrink-0">
@@ -567,7 +582,7 @@ export default function PosTerminal() {
         </div>
 
         {/* ៣. Products Grid (flex-1 overflow-y-auto សម្រាប់ Scroll តែផ្នែក Card ប៉ុណ្ណោះ) */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pr-1">
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 pr-1">
           {filteredProducts.map((prod) => {
             const prodStock = Number(prod.stock || 0);
             const outOfStock = prodStock <= 0;
@@ -575,7 +590,7 @@ export default function PosTerminal() {
               <div
                 key={prod.product_id || prod.id}
                 onClick={() => !outOfStock && openProductModal(prod)}
-                className={`relative bg-white rounded-2xl p-4 shadow-sm border border-stone-100 transition flex flex-col justify-between h-fit ${
+                className={`relative bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-stone-100 transition flex flex-col justify-between h-fit ${
                   outOfStock
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:shadow-md cursor-pointer'
@@ -584,7 +599,7 @@ export default function PosTerminal() {
                 <img
                   src={prod.image ? `${STORAGE_BASE}${prod.image}` : 'https://placehold.co/150?text=Coffee'}
                   alt={prod.product_name}
-                  className="w-full h-32 object-cover rounded-xl mb-3"
+                  className="w-full h-24 sm:h-32 object-cover rounded-xl mb-3"
                 />
                 <div>
                   <h3 className="font-semibold text-stone-800 line-clamp-1">{prod.product_name || prod.name}</h3>
@@ -607,16 +622,30 @@ export default function PosTerminal() {
         </div>
       </div>
 
-      {/* Cart Summary Panel */}
-      <div className="w-96 bg-white border-l border-stone-200 flex flex-col shadow-lg h-full overflow-hidden">
+      {/* Cart Summary Panel — persistent on desktop (lg+), slide-in drawer on mobile/tablet */}
+      <div
+        className={`bg-white border-l border-stone-200 flex flex-col shadow-lg h-full overflow-hidden fixed inset-y-0 right-0 z-40 w-[min(100vw,26rem)] transition-transform duration-300 ease-in-out lg:static lg:inset-auto lg:z-auto lg:w-96 lg:translate-x-0 ${
+          cartOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
         <div className="p-5 border-b shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-stone-800 flex items-center gap-2">
               <ShoppingBag className="text-coffee-600" /> Current Order
             </h2>
-            <span className="text-xs bg-stone-100 px-2.5 py-1 rounded-full text-stone-600 font-semibold">
-              {cart.reduce((n, item) => n + item.quantity, 0)} Items
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-stone-100 px-2.5 py-1 rounded-full text-stone-600 font-semibold">
+                {cart.reduce((n, item) => n + item.quantity, 0)} Items
+              </span>
+              <button
+                onClick={() => setCartOpen(false)}
+                className="lg:hidden p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                aria-label="Close cart"
+                title="Close cart"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -907,10 +936,33 @@ export default function PosTerminal() {
         </div>
       </div>
 
+      {/* Mobile floating cart bar (below lg) */}
+      {cart.length > 0 && !cartOpen && (
+        <button
+          onClick={() => setCartOpen(true)}
+          className="lg:hidden fixed bottom-0 inset-x-0 z-30 mx-3 mb-3 flex items-center justify-between gap-3 rounded-2xl bg-stone-900 text-white px-4 py-3.5 shadow-2xl shadow-stone-900/30 cursor-pointer"
+          style={{ marginBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <ShoppingBag size={18} className="text-coffee-300" />
+            View Cart · {cart.reduce((n, item) => n + item.quantity, 0)}
+          </span>
+          <span className="font-extrabold">${finalTotal.toFixed(2)}</span>
+        </button>
+      )}
+
+      {/* Mobile backdrop for cart drawer (below lg) */}
+      {cartOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-30"
+          onClick={() => setCartOpen(false)}
+        />
+      )}
+
       {/* Dynamic Price Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative space-y-5">
+          <div className="bg-white w-full max-w-md rounded-2xl p-4 sm:p-6 shadow-2xl relative space-y-4 sm:space-y-5 max-h-[88vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-stone-800">
                 {selectedProduct.product_name || selectedProduct.name}
@@ -1253,7 +1305,7 @@ export default function PosTerminal() {
       {/* Receipt Modal */}
       {showReceipt && completedOrder && (
         <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl font-mono text-stone-700 relative space-y-4">
+          <div className="bg-white w-full max-w-sm p-4 sm:p-6 rounded-3xl shadow-2xl font-mono text-stone-700 relative space-y-4 max-h-[88vh] overflow-y-auto">
             
             <button
               onClick={() => setShowReceipt(false)}

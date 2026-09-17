@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
 import { useToast } from "../../context/useToast";
+import ExportMenu from "../../components/ExportMenu";
+import { exportToExcel, exportToWord, todayString } from "../../utils/exportUtils";
 import { TrendingUp, ShoppingBag, CalendarRange, ArrowUpRight, ArrowDownRight, DollarSign, Star, AlertTriangle, Filter } from "lucide-react";
 
 // Segmented Control Options — value = ចំនួនថ្ងៃ ផ្ញើទៅ backend /reports/revenue/{value}
@@ -42,6 +44,7 @@ export default function RevenueReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   // Custom Date Range (Start - End) ដាច់ពី preset days
   const [custom, setCustom] = useState(null); // { start, end }
@@ -128,8 +131,71 @@ export default function RevenueReport() {
     ? ((data.revenue - data.previous_period.revenue) / data.previous_period.revenue) * 100
     : null;
 
+  // Export របាយការណ៍ Revenue ជា Excel / Word
+  const exportReport = (format) => {
+    if (!data) {
+      toast.info("Load the report first, then export.", "Nothing to Export");
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const sections = [
+        {
+          heading: "Period Summary",
+          columns: ["Metric", "Value"],
+          rows: [
+            ["Start date", data.period?.start_date || "—"],
+            ["End date", data.period?.end_date || "—"],
+            ["Total revenue", formatMoney(data.revenue)],
+            ["Total orders", data.order_count ?? 0],
+            ["Average revenue / day", formatMoney(data.average_revenue_per_day)],
+            ["Previous period revenue", formatMoney(data.previous_period?.revenue)],
+          ],
+        },
+        {
+          heading: "Revenue by Day",
+          columns: ["Day", "Revenue", "Orders"],
+          rows: chartData.labels.map((label, i) => [
+            label,
+            formatMoney(chartData.revenue[i] || 0),
+            chartData.orders[i] ?? 0,
+          ]),
+        },
+        {
+          heading: "Top Selling Products",
+          columns: ["Product", "Qty Sold", "Sales"],
+          rows: (data.top_products || []).map((p) => [
+            p.product_name,
+            p.total_qty,
+            formatMoney(p.total_sales),
+          ]),
+        },
+      ];
+
+      const common = {
+        title: "Revenue Report",
+        subtitle: periodLabel,
+        sections,
+        filename: `revenue_report_${todayString()}`,
+      };
+
+      if (format === "excel") {
+        exportToExcel(common);
+      } else {
+        exportToWord(common);
+      }
+      toast.success("Revenue report exported", "Export Complete");
+    } catch (err) {
+      console.error("Error exporting report:", err);
+      toast.error("Could not export report.", "Export Failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -141,20 +207,23 @@ export default function RevenueReport() {
             <p className="text-stone-500 text-sm mt-0.5">Track revenue across selected time periods</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 bg-white border border-stone-200 rounded-xl p-1.5 shadow-sm">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => selectPeriod(p.value)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
-                periodActive(p.value)
-                  ? "bg-coffee-600 text-white shadow-sm shadow-coffee-600/20"
-                  : "text-stone-600 hover:bg-stone-100"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportMenu onExport={exportReport} loading={loading || exporting} compact />
+          <div className="flex flex-wrap items-center gap-1.5 bg-white border border-stone-200 rounded-xl p-1.5 shadow-sm">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => selectPeriod(p.value)}
+                className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                  periodActive(p.value)
+                    ? "bg-coffee-600 text-white shadow-sm shadow-coffee-600/20"
+                    : "text-stone-600 hover:bg-stone-100"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

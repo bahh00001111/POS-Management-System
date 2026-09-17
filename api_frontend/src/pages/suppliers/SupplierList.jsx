@@ -159,7 +159,7 @@ export default function SupplierList() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -262,7 +262,7 @@ export default function SupplierList() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[720px]">
             <thead>
               <tr className="bg-stone-50/80 text-[11px] uppercase tracking-wider text-stone-500">
                 <th className="px-5 py-3 font-semibold">Supplier</th>
@@ -396,8 +396,8 @@ export default function SupplierList() {
 
       {/* Create / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex justify-center items-start z-50 p-4 pt-24">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-stone-200/60 overflow-hidden">
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex justify-center items-start z-50 p-4 pt-16 sm:pt-24">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-stone-200/60 overflow-hidden max-h-[88vh] overflow-y-auto">
             <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-stone-100">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 rounded-xl bg-coffee-600/10 flex items-center justify-center shrink-0">

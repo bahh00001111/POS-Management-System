@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
+import { useToast } from '../../context/useToast';
+import ExportMenu from '../../components/ExportMenu';
+import { exportToExcel, exportToWord, todayString } from '../../utils/exportUtils';
 import { ShoppingBag, Eye, Calendar, Utensils, Filter } from 'lucide-react';
 
 const toISODate = (d) => {
@@ -31,6 +34,7 @@ const PAYMENT_SEGMENTS = [
 ];
 
 export default function OrderList() {
+  const toast = useToast();
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -40,6 +44,7 @@ export default function OrderList() {
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [paymentFilter, setPaymentFilter] = useState('PAID');
+  const [exporting, setExporting] = useState(false);
 
   // តម្លៃបញ្ចូល (Draft) និងតម្លៃដែលបានអនុវត្ត (Applied) ដាច់ដោយឡែកពីគ្នា
   const [draftStart, setDraftStart] = useState('');
@@ -155,8 +160,74 @@ export default function OrderList() {
     setIsOpen(true);
   };
 
+  // ទាញយក Order ទាំងអស់តាម Filter បច្ចុប្បន្ន (ទំព័រទាំងអស់) រួច Export
+  const exportOrders = async (format) => {
+    setExporting(true);
+    try {
+      const collected = [];
+      let page = 1;
+      let lastPage = 1;
+
+      do {
+        const params = {
+          page,
+          per_page: 100,
+          payment_status: paymentFilter,
+        };
+        if (appliedStart) params.start_date = appliedStart;
+        if (appliedEnd) params.end_date = appliedEnd;
+
+        const res = await axiosClient.get('/orders', { params });
+        const payload = Array.isArray(res.data) ? { data: res.data } : res.data;
+        const paginated = payload?.data;
+        const items = Array.isArray(paginated) ? paginated : paginated?.data || [];
+        collected.push(...items);
+        lastPage = paginated?.last_page ? Number(paginated.last_page) : 1;
+        page += 1;
+      } while (page <= lastPage);
+
+      if (collected.length === 0) {
+        toast.info('No orders match the current filter.', 'Nothing to Export');
+        return;
+      }
+
+      const subtitle = `Payment status: ${paymentFilter === 'all' ? 'All' : paymentFilter === 'PAID' ? 'Paid' : 'Unpaid'}${
+        appliedStart ? ` | ${appliedStart} → ${appliedEnd}` : ''
+      } | ${collected.length} order${collected.length > 1 ? 's' : ''}`;
+
+      const sections = [
+        {
+          heading: 'Orders',
+          columns: ['Order ID', 'Table / Type', 'Date & Time', 'Payment', 'Total Amount'],
+          rows: collected.map((o) => [
+            `#${o.order_id || o.id}`,
+            o.table?.table_number ||
+              o.order_type ||
+              (o.table_id ? `Table ${o.table_id}` : 'TAKEAWAY'),
+            o.created_at ? new Date(o.created_at).toLocaleString() : 'N/A',
+            o.payment_status === 'PAID' ? 'Paid' : 'Unpaid',
+            `$${parseFloat(o.total_amount || 0).toFixed(2)}`,
+          ]),
+        },
+      ];
+
+      const common = { title: 'Order History', subtitle, sections, filename: `orders_${todayString()}` };
+      if (format === 'excel') {
+        exportToExcel(common);
+      } else {
+        exportToWord(common);
+      }
+      toast.success(`Exported ${collected.length} order${collected.length > 1 ? 's' : ''}`, 'Export Complete');
+    } catch (err) {
+      console.error('Error exporting orders:', err);
+      toast.error('Could not export orders.', 'Export Failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
@@ -166,20 +237,23 @@ export default function OrderList() {
         </div>
 
         {/* Segmented Control — ជ្រើសរើសរយៈពេលរហ័ស */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-white border border-stone-200 rounded-xl p-1.5 shadow-sm">
-          {SEGMENTS.map((seg) => (
-            <button
-              key={seg.key}
-              onClick={() => selectSegment(seg)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
-                segmentActive(seg)
-                  ? 'bg-coffee-600 text-white shadow-sm shadow-coffee-600/20'
-                  : 'text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              {seg.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportMenu onExport={exportOrders} loading={exporting} />
+          <div className="flex flex-wrap items-center gap-1.5 bg-white border border-stone-200 rounded-xl p-1.5 shadow-sm">
+            {SEGMENTS.map((seg) => (
+              <button
+                key={seg.key}
+                onClick={() => selectSegment(seg)}
+                className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                  segmentActive(seg)
+                    ? 'bg-coffee-600 text-white shadow-sm shadow-coffee-600/20'
+                    : 'text-stone-600 hover:bg-stone-100'
+                }`}
+              >
+                {seg.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -284,15 +358,16 @@ export default function OrderList() {
         </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-stone-50 border-b border-stone-100 text-stone-600 text-sm">
-              <th className="p-4">Order ID</th>
-              <th className="p-4">Table / Type</th>
-              <th className="p-4">Date & Time</th>
-              <th className="p-4">Payment</th>
-              <th className="p-4">Total Amount</th>
-              <th className="p-4 text-right">Action</th>
+              <th className="p-4 whitespace-nowrap">Order ID</th>
+              <th className="p-4 whitespace-nowrap hidden sm:table-cell">Table / Type</th>
+              <th className="p-4 whitespace-nowrap hidden md:table-cell">Date & Time</th>
+              <th className="p-4 whitespace-nowrap">Payment</th>
+              <th className="p-4 whitespace-nowrap">Total Amount</th>
+              <th className="p-4 text-right whitespace-nowrap">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100 text-stone-700 text-sm">
@@ -301,14 +376,14 @@ export default function OrderList() {
                 const orderId = order.order_id || order.id;
                 return (
                   <tr key={orderId} className="hover:bg-stone-50/50 transition">
-                    <td className="p-4 font-bold text-stone-800">#{orderId}</td>
-                    <td className="p-4">
+                    <td className="p-4 font-bold text-stone-800 whitespace-nowrap">#{orderId}</td>
+                    <td className="p-4 hidden sm:table-cell">
                       <span className="flex items-center gap-1 font-semibold text-stone-700">
                         <Utensils size={14} className="text-coffee-600" />
                         {order.table?.table_number || order.order_type || (order.table_id ? `Table ${order.table_id}` : 'TAKEAWAY')}
                       </span>
                     </td>
-                    <td className="p-4 text-stone-500">
+                    <td className="p-4 text-stone-500 hidden md:table-cell">
                       <span className="flex items-center gap-1">
                         <Calendar size={14} />
                         {order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A'}
@@ -316,7 +391,7 @@ export default function OrderList() {
                     </td>
                     <td className="p-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                           order.payment_status === 'PAID'
                             ? 'bg-emerald-50 text-emerald-600'
                             : 'bg-amber-50 text-amber-600'
@@ -330,7 +405,7 @@ export default function OrderList() {
                         {order.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
                       </span>
                     </td>
-                    <td className="p-4 font-bold text-coffee-600">
+                    <td className="p-4 font-bold text-coffee-600 whitespace-nowrap">
                       ${parseFloat(order.total_amount || 0).toFixed(2)}
                     </td>
                     <td className="p-4 text-right">
@@ -353,6 +428,7 @@ export default function OrderList() {
             )}
           </tbody>
         </table>
+        </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-stone-100">
           <p className="text-sm text-stone-400">

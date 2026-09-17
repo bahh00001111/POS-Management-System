@@ -95,14 +95,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.allSettled([
-      axiosClient.get('/products'),
       axiosClient.get('/categories'),
       axiosClient.get('/orders/summary'),
       axiosClient.get('/settings'),
     ])
-      .then(([prodRes, catRes, ordRes, setRes]) => {
+      .then(([catRes, ordRes, setRes]) => {
         setData({
-          products: prodRes.status === 'fulfilled' ? toArray(prodRes.value.data) : [],
           categories: catRes.status === 'fulfilled' ? toArray(catRes.value.data) : [],
           summary: ordRes.status === 'fulfilled' ? ordRes.value.data?.data || {} : {},
         });
@@ -117,7 +115,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const { products, categories, summary } = data;
+  const { categories, summary } = data;
 
   const totalRevenue = Number(summary.total_revenue) || 0;
   const totalOrders = Number(summary.total_orders) || 0;
@@ -125,6 +123,10 @@ export default function Dashboard() {
   const avgOrderValue = Number(summary.avg_order_value) || 0;
   const todayRevenue = Number(summary.today?.revenue) || 0;
   const todayOrders = Number(summary.today?.orders) || 0;
+  const totalProducts = categories.reduce(
+    (sum, c) => sum + (Number(c.products_count) || 0),
+    0
+  );
 
   const weekRevenue = (summary.week?.labels || []).map((label, i) => ({
     label,
@@ -139,22 +141,11 @@ export default function Dashboard() {
   }));
 
   const categoryBreakdown = useMemo(() => {
-    const catMap = {};
-    categories.forEach((c) => {
-      const id = c.category_id || c.id;
-      if (id != null) catMap[String(id)] = c.category_name || c.name;
-    });
-    const counts = {};
-    products.forEach((p) => {
-      const name =
-        p.category?.category_name ||
-        p.category?.name ||
-        catMap[String(p.category_id)] ||
-        'Uncategorized';
-      counts[name] = (counts[name] || 0) + 1;
-    });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [products, categories]);
+    return categories
+      .map((c) => [c.category_name || c.categoryName || 'Uncategorized', Number(c.products_count) || 0])
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1]);
+  }, [categories]);
 
   const orderTypes = useMemo(() => {
     const ot = summary.order_types || {};
@@ -184,9 +175,9 @@ export default function Dashboard() {
   const todayKhr = Math.round(todayRevenue * exchangeRate).toLocaleString();
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-6">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-[2.5rem] border border-coffee-700/60 shadow-2xl shadow-coffee-950/30 bg-gradient-to-br from-coffee-950 via-coffee-900 to-coffee-600 p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+      <div className="relative overflow-hidden rounded-[1.5rem] sm:rounded-[2.5rem] border border-coffee-700/60 shadow-2xl shadow-coffee-950/30 bg-gradient-to-br from-coffee-950 via-coffee-900 to-coffee-600 p-5 sm:p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:gap-8">
         {/* decorative circles */}
         <div className="pointer-events-none absolute -right-16 -top-20 w-72 h-72 rounded-full border-[28px] border-white/10" />
         <div className="pointer-events-none absolute right-44 -bottom-24 w-64 h-64 rounded-full border-[24px] border-coffee-300/20" />
@@ -272,7 +263,7 @@ export default function Dashboard() {
         <StatCard
           icon={Coffee}
           label="Products"
-          value={products.length}
+          value={totalProducts}
           sub="Active menu items"
           iconBg="bg-coffee-100"
           iconColor="text-coffee-600"
@@ -478,14 +469,15 @@ export default function Dashboard() {
             <Clock className="text-coffee-600" size={20} /> Recent Orders
           </h2>
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-stone-50 border-y border-stone-100 text-stone-600 text-sm">
-              <th className="p-4">Order</th>
-              <th className="p-4">Table / Type</th>
-              <th className="p-4">Date & Time</th>
-              <th className="p-4">Total</th>
-              <th className="p-4 text-right">Status</th>
+              <th className="p-4 whitespace-nowrap">Order</th>
+              <th className="p-4 whitespace-nowrap hidden sm:table-cell">Table / Type</th>
+              <th className="p-4 whitespace-nowrap hidden md:table-cell">Date & Time</th>
+              <th className="p-4 whitespace-nowrap">Total</th>
+              <th className="p-4 text-right whitespace-nowrap">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100 text-stone-700 text-sm">
@@ -502,8 +494,8 @@ export default function Dashboard() {
                 const orderId = order.order_id || order.id;
                 return (
                   <tr key={orderId} className="hover:bg-stone-50/50 transition">
-                    <td className="p-4 font-bold text-stone-800">#{orderId}</td>
-                    <td className="p-4">
+                    <td className="p-4 font-bold text-stone-800 whitespace-nowrap">#{orderId}</td>
+                    <td className="p-4 hidden sm:table-cell">
                       <span className="flex items-center gap-1.5 font-medium text-stone-700">
                         <Utensils size={14} className="text-coffee-600" />
                         {order.table?.table_number ||
@@ -511,10 +503,10 @@ export default function Dashboard() {
                           (order.table_id ? `Table ${order.table_id}` : 'TAKEAWAY')}
                       </span>
                     </td>
-                    <td className="p-4 text-stone-500">
+                    <td className="p-4 text-stone-500 hidden md:table-cell">
                       {order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A'}
                     </td>
-                    <td className="p-4 font-bold text-coffee-600">
+                    <td className="p-4 font-bold text-coffee-600 whitespace-nowrap">
                       ${parseFloat(order.total_amount || 0).toFixed(2)}
                     </td>
                     <td className="p-4 text-right">
@@ -534,6 +526,7 @@ export default function Dashboard() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

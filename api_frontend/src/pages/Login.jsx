@@ -74,9 +74,9 @@ export default function Login() {
   const formDisabled = isLocked || loading;
 
   return (
-    <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-stone-900 flex items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
+        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
           <div className="text-center space-y-2">
             <div className="mx-auto w-fit p-4 bg-coffee-100 text-coffee-600 rounded-2xl">
               <Coffee size={32} />
@@ -173,7 +173,7 @@ export default function Login() {
             {/* Khmer hint shown while locked */}
             {isLocked && (
               <p className="text-center text-xs text-red-400 font-medium">
-                ងាកក្រោយវិញ {lockCountdown} វិនាទីអាចព្យាយាមម្ដងទៀតបាន
+                Too many failed attempts. Try again in {lockCountdown} seconds.
               </p>
             )}
 

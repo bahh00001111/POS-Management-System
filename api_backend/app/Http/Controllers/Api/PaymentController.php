@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\KhqrTransaction;
 use App\Models\Order;
 use App\Services\KhqrService;
+use App\Services\TelegramService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -155,6 +156,8 @@ class PaymentController extends Controller
     private function confirmPayment(KhqrTransaction $transaction, int $orderId, array $bakongData): void
     {
         DB::transaction(function () use ($transaction, $orderId, $bakongData) {
+            $wasNewlyPaid = false;
+
             if ($transaction->status !== 'SUCCESS') {
                 $transaction->status = 'SUCCESS';
                 $transaction->save();
@@ -164,6 +167,7 @@ class PaymentController extends Controller
             if ($order && $order->payment_status !== 'PAID') {
                 $order->payment_status = 'PAID';
                 $order->save();
+                $wasNewlyPaid = true;
             }
 
             // Defensive audit: Bakong reports the paid amount/currency.
@@ -185,6 +189,17 @@ class PaymentController extends Controller
                         'bakong_currency' => $bakongData['currency'],
                     ]);
                 }
+            }
+
+            // Notify the Telegram chat AFTER the DB transaction commits.
+            if ($wasNewlyPaid && $order) {
+                DB::afterCommit(function () use ($order, $transaction, $bakongData) {
+                    app(TelegramService::class)->sendPaymentConfirmation(
+                        $order,
+                        (string) $transaction->reference,
+                        $bakongData
+                    );
+                });
             }
         });
     }

@@ -24,9 +24,17 @@ class Setting extends Model
         'merchant_city',
         'merchant_category_code',
         'merchant_currency',
+        'telegram_bot_token',
+        'telegram_chat_id',
+        'telegram_enabled',
+        'telegram_notify_orders',
+        'telegram_notify_payments',
     ];
 
     protected $casts = [
         'exchange_rate' => 'float',
+        'telegram_enabled' => 'boolean',
+        'telegram_notify_orders' => 'boolean',
+        'telegram_notify_payments' => 'boolean',
     ];
 }

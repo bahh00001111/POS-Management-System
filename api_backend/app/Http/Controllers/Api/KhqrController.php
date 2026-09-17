@@ -7,6 +7,7 @@ use App\Models\KhqrTransaction;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Services\KhqrService;
+use App\Services\TelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -189,10 +190,23 @@ class KhqrController extends Controller
             $transaction->status = 'SUCCESS';
             $transaction->save();
 
+            $wasNewlyPaid = false;
             if ($transaction->order_id) {
-                Order::where('order_id', $transaction->order_id)
+                $wasNewlyPaid = Order::where('order_id', $transaction->order_id)
                     ->where('payment_status', '!=', 'PAID')
-                    ->update(['payment_status' => 'PAID']);
+                    ->update(['payment_status' => 'PAID']) > 0;
+            }
+
+            if ($wasNewlyPaid) {
+                DB::afterCommit(function () use ($transaction) {
+                    $order = Order::find($transaction->order_id);
+                    if ($order) {
+                        app(TelegramService::class)->sendPaymentConfirmation(
+                            $order,
+                            (string) $transaction->reference
+                        );
+                    }
+                });
             }
         });
 
@@ -342,10 +356,23 @@ class KhqrController extends Controller
             $transaction->status = $data['status'] === 'PAID' ? 'SUCCESS' : $data['status'];
             $transaction->save();
 
+            $wasNewlyPaid = false;
             if ($transaction->status === 'SUCCESS' && $transaction->order_id) {
-                Order::where('order_id', $transaction->order_id)
+                $wasNewlyPaid = Order::where('order_id', $transaction->order_id)
                     ->where('payment_status', '!=', 'PAID')
-                    ->update(['payment_status' => 'PAID']);
+                    ->update(['payment_status' => 'PAID']) > 0;
+            }
+
+            if ($wasNewlyPaid) {
+                DB::afterCommit(function () use ($transaction) {
+                    $order = Order::find($transaction->order_id);
+                    if ($order) {
+                        app(TelegramService::class)->sendPaymentConfirmation(
+                            $order,
+                            (string) $transaction->reference
+                        );
+                    }
+                });
             }
         });
 

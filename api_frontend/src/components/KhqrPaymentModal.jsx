@@ -88,16 +88,23 @@ export default function KhqrPaymentModal({
     }
   }, [onSuccess]);
 
-  // 2. Verify the payment against the Bakong Open API every 3 seconds.
+  // 2. Verify the payment against the Bakong Open API every 5 seconds.
   //    /khqr/status only reads the local database and NEVER sees money that
   //    arrived at the merchant's Bakong account — that is why real payments
   //    used to leave this modal stuck showing the same QR. /payments/verify
   //    asks NBC directly (check_transaction_by_md5) and flips the order to
   //    PAID in the DB the moment the bank confirms the transfer.
+  //    An in-flight guard keeps us from stacking concurrent bank calls when
+  //    the gateway is slow: interval < request time used to pile up calls.
+  const verifyingRef = useRef(false);
+  const timerRef = useRef(null);
+
   useEffect(() => {
     if (!open || !khqr?.md5 || !orderId || isPaid) return;
 
-    const timer = setInterval(async () => {
+    const verify = async () => {
+      if (!khqr?.md5 || verifyingRef.current) return;
+      verifyingRef.current = true;
       try {
         const res = await axiosClient.post('/payments/verify', {
           md5: khqr.md5,
@@ -116,13 +123,16 @@ export default function KhqrPaymentModal({
             err.response?.data?.message || (statusCode === 503 ? 'Bakong Open API token is not configured.' : '');
           setVerifyNotice(detail ? `${detail} Still trying…` : 'Payment gateway unavailable — still trying…');
         } else if (statusCode === 404) {
-          clearInterval(timer);
+          clearInterval(timerRef.current);
           setError('Payment request not found. Please try again.');
         }
+      } finally {
+        verifyingRef.current = false;
       }
-    }, 3000);
+    };
 
-    return () => clearInterval(timer);
+    timerRef.current = setInterval(verify, 5000);
+    return () => clearInterval(timerRef.current);
   }, [open, khqr?.md5, orderId, isPaid, complete]);
 
   // 3. Simulate a successful bank payment (mock only)
@@ -221,7 +231,7 @@ export default function KhqrPaymentModal({
               <div className="text-center gap-1 flex flex-col">
                 <p className="text-xs font-bold text-stone-800">{merchantName}</p>
                 <p className="text-[11px] text-stone-500 font-sans">
-                  Waiting for payment — confirming with the bank every 3s…
+                  Waiting for payment — confirming with the bank every 5s…
                 </p>
                 {verifyNotice && (
                   <p className="text-[11px] font-bold text-amber-600 text-center font-sans">

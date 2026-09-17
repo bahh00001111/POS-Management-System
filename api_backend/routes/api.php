@@ -65,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
         Route::put('/settings', [SettingController::class, 'update']);
+        Route::post('/settings/send-telegram-test', [SettingController::class, 'sendTelegramTest']);
 
         // Reports & Alerts (Admin, Manager)
         Route::get('/reports/revenue/{days}', [ReportController::class, 'revenue']);

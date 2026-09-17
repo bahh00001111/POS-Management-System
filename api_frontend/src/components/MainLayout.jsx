@@ -41,7 +41,7 @@ export default function MainLayout() {
       {/* Main content — flex-1 min-w-0 prevents horizontal scrollbar bugs */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <Navbar onToggleSidebar={toggleSidebar} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-2 sm:p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

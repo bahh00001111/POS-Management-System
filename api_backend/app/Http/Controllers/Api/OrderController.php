@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\Product;
+use App\Services\TelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -297,6 +298,7 @@ class OrderController extends Controller {
             ]);
 
             // ៦. រក្សាទុក Order Details ជាមួយនឹង Modifiers
+            $updatedStock = [];
             foreach ($itemData as $item) {
                 OrderDetail::create([
                     'order_id'    => $order->order_id,
@@ -313,6 +315,7 @@ class OrderController extends Controller {
                 $product = $item['product'];
                 $newStock = max(0, (int) $product->stock - (int) $item['quantity']);
                 $product->update(['stock' => $newStock]);
+                $updatedStock[$product->product_id] = $newStock;
 
                 if ($product->wasChanged('stock')) {
                     $this->checkStockAndNotify($product, $newStock);
@@ -321,9 +324,18 @@ class OrderController extends Controller {
 
             \Illuminate\Support\Facades\Cache::forget('products.with_relations');
 
+            // Notify the Telegram chat about the new sale AFTER the DB
+            // transaction commits — never hold the transaction open for an
+            // external HTTP call.
+            DB::afterCommit(function () use ($order, $itemData) {
+                app(TelegramService::class)->sendSaleNotification($order, $itemData);
+            });
+
             return response()->json([
                 'message' => 'Order created successfully',
-                'data' => $order->load('details.product', 'user')
+                'data' => $order
+                    ->load('details.product', 'user')
+                    ->setAttribute('updated_stock', $updatedStock)
             ], 201);
         });
     }

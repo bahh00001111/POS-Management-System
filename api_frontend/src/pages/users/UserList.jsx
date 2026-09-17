@@ -318,7 +318,7 @@ export default function UserList() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
@@ -410,10 +410,16 @@ export default function UserList() {
                           @{u.username}
                         </td>
                         <td className="p-4 text-stone-500 max-w-[220px] truncate">
-                          {u.email || "—"}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Mail size={13} className="text-stone-400 shrink-0" />
+                            {u.email || "—"}
+                          </span>
                         </td>
                         <td className="p-4 font-medium text-stone-500 whitespace-nowrap">
-                          {u.phone || "—"}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Phone size={13} className="text-stone-400 shrink-0" />
+                            {u.phone || "—"}
+                          </span>
                         </td>
                         <td className="p-4">
                           <span
@@ -492,9 +498,17 @@ export default function UserList() {
                         @{u.username}
                       </p>
                       {(u.email || u.phone) && (
-                        <div className="mt-1 flex flex-col gap-0.5 text-xs text-stone-400">
-                          {u.email && <span className="truncate">{u.email}</span>}
-                          {u.phone && <span>{u.phone}</span>}
+                        <div className="mt-1 flex flex-col gap-1 text-xs text-stone-400">
+                          {u.email && (
+                            <span className="inline-flex items-center gap-1 truncate">
+                              <Mail size={11} className="shrink-0" /> {u.email}
+                            </span>
+                          )}
+                          {u.phone && (
+                            <span className="inline-flex items-center gap-1">
+                              <Phone size={11} className="shrink-0" /> {u.phone}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -562,8 +576,8 @@ export default function UserList() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex items-start justify-center p-4 pt-24 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-stone-200/60 overflow-hidden">
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex items-start justify-center p-4 pt-16 sm:pt-24 z-50">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl ring-1 ring-stone-200/60 overflow-hidden max-h-[88vh] overflow-y-auto">
             <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-stone-100">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 rounded-xl bg-coffee-600/10 flex items-center justify-center shrink-0">
