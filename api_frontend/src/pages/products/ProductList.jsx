@@ -16,7 +16,8 @@ const getInitials = (name = "") => {
 };
 
 function ImageWithFallback({ src, alt, initials, size = "w-10 h-10" }) {
-  const [failed, setFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState(null);
+  const failed = Boolean(src) && failedSrc === src;
   const base = `${size} rounded-lg ring-1 ring-stone-200 flex-shrink-0`;
   if (!src || failed) {
     return (
@@ -25,7 +26,7 @@ function ImageWithFallback({ src, alt, initials, size = "w-10 h-10" }) {
       </span>
     );
   }
-  return <img src={src} alt={alt} className={`${base} object-cover`} onError={() => setFailed(true)} />;
+  return <img src={src} alt={alt} className={`${base} object-cover`} onError={() => setFailedSrc(src)} />;
 }
 
 export default function ProductList() {
@@ -53,18 +54,31 @@ export default function ProductList() {
 
   // ១. Fetch Products & Categories
   const fetchData = async () => {
-    try {
-      const [prodRes, catRes, supRes] = await Promise.all([
-        axiosClient.get('/products'),
-        axiosClient.get('/categories'),
-        axiosClient.get('/suppliers')
-      ]);
-      const fetchedCategories = catRes.data.data || catRes.data;
-      setProducts(prodRes.data.data || prodRes.data);
-      setCategories(fetchedCategories);
-      setSuppliers(supRes.data.data || supRes.data || []);
-    } catch (err) {
-      console.error('Error fetching data:', err);
+    const [prodRes, catRes, supRes] = await Promise.allSettled([
+      axiosClient.get('/products'),
+      axiosClient.get('/categories'),
+      axiosClient.get('/suppliers'),
+    ]);
+
+    if (prodRes.status === 'fulfilled') {
+      setProducts(prodRes.value.data.data || prodRes.value.data);
+    } else {
+      console.error('Error fetching products:', prodRes.reason);
+      toast.error('Could not load products', 'Load Failed');
+    }
+
+    if (catRes.status === 'fulfilled') {
+      setCategories(catRes.value.data.data || catRes.value.data);
+    } else {
+      console.error('Error fetching categories:', catRes.reason);
+      setCategories([]);
+    }
+
+    if (supRes.status === 'fulfilled') {
+      setSuppliers(supRes.value.data.data || supRes.value.data || []);
+    } else {
+      console.error('Error fetching suppliers:', supRes.reason);
+      setSuppliers([]);
     }
   };
 

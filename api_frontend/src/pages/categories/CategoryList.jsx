@@ -15,7 +15,8 @@ const getInitials = (name = "") => {
 };
 
 function ImageWithFallback({ src, alt, initials, size = "w-10 h-10" }) {
-  const [failed, setFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState(null);
+  const failed = Boolean(src) && failedSrc === src;
   const base = `${size} rounded-lg ring-1 ring-stone-200 flex-shrink-0`;
   if (!src || failed) {
     return (
@@ -24,7 +25,7 @@ function ImageWithFallback({ src, alt, initials, size = "w-10 h-10" }) {
       </span>
     );
   }
-  return <img src={src} alt={alt} className={`${base} object-cover`} onError={() => setFailed(true)} />;
+  return <img src={src} alt={alt} className={`${base} object-cover`} onError={() => setFailedSrc(src)} />;
 }
 
 export default function CategoryList() {
