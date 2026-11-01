@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api', 
+  // ប្រើប្រាស់ VITE_API_BASE_URL ពី Vercel និងថែម /api នៅខាងក្រោយ
+  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`, 
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
