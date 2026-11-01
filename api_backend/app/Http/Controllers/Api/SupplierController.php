@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 
 class SupplierController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         // withCount ផ្ទុកតែលេខរាប់ មិនមែន Products ទាំងអស់ -> កាត់បន្ថយ payload ជាច្រើន
         // Cache 5 នាទី ព្រោះ Supplier ប្រែប្រួលតិចតួច (Invalidate ពេល CRUD)
@@ -19,7 +19,7 @@ class SupplierController extends Controller
 
         return response()->json([
             'message' => 'Suppliers retrieved successfully',
-            'data' => $suppliers,
+            'data' => $this->paginateCollection($suppliers, $this->resolvePerPage($request), $request),
         ], 200);
     }
 

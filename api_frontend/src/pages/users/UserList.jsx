@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import axiosClient from "../../api/axiosClient";
 import { useToast } from "../../context/useToast";
+import { toArray } from "../../utils/apiUtils";
 import {
   Users,
   Plus,
@@ -97,7 +98,7 @@ export default function UserList() {
     try {
       setLoading(true);
       const res = await axiosClient.get("/users");
-      const data = Array.isArray(res.data) ? res.data : res.data.data || [];
+      const data = toArray(res.data);
       setUsers(data);
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -111,7 +112,7 @@ export default function UserList() {
     (async () => {
       try {
         const res = await axiosClient.get("/users");
-        const data = Array.isArray(res.data) ? res.data : res.data.data || [];
+        const data = toArray(res.data);
         if (!cancelled) setUsers(data);
       } catch (err) {
         console.error("Error fetching users:", err);
@@ -287,8 +288,9 @@ export default function UserList() {
 
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return users;
-    return users.filter((u) => {
+    const userList = Array.isArray(users) ? users : toArray(users);
+    if (!query) return userList;
+    return userList.filter((u) => {
       const roleString = formatRoles(u.roles).toLowerCase();
       return (
         (u.full_name || "").toLowerCase().includes(query) ||

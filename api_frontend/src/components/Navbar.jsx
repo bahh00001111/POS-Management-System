@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User as UserIcon, Coffee, Bell, CheckCheck, PackageX, AlertTriangle, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import axiosClient from '../api/axiosClient';
+import { toArray } from '../utils/apiUtils';
 
 const getInitials = (name = '') => {
   const words = name.split(/\s+/).filter(Boolean);
@@ -42,7 +43,9 @@ function NotificationBell() {
     setLoading(true);
     try {
       const res = await axiosClient.get('/notifications');
-      setNotifications(res.data.data || res.data || []);
+      // toArray unwraps the paginated shape
+      // { message, data: { data: [...], current_page, ... } } to a plain array.
+      setNotifications(toArray(res.data));
     } catch (err) {
       console.error(err);
     } finally {
@@ -68,8 +71,12 @@ function NotificationBell() {
 
   if (!canView) return null;
 
-  const unread = notifications.filter((n) => !n.read_at).length;
-  const unreadNotifications = notifications.filter((n) => !n.read_at);
+  // Defensive normalizer: never trust the stored shape if a stale value slips
+  // through, so .filter() can never be called on a non-array.
+  const notifList = Array.isArray(notifications) ? notifications : [];
+
+  const unread = notifList.filter((n) => !n.read_at).length;
+  const unreadNotifications = notifList.filter((n) => !n.read_at);
 
   const markRead = async (id) => {
     try {

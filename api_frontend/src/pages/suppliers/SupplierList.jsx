@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import axiosClient from "../../api/axiosClient";
 import { useToast } from "../../context/useToast";
+import { toArray } from "../../utils/apiUtils";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import Pagination from "../../components/Pagination";
 import {
@@ -50,8 +51,9 @@ export default function SupplierList() {
 
   const filteredSuppliers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return suppliers;
-    return suppliers.filter((s) =>
+    const supplierList = Array.isArray(suppliers) ? suppliers : toArray(suppliers);
+    if (!query) return supplierList;
+    return supplierList.filter((s) =>
       [s.supplier_name, s.contact_name, s.phone, s.email, s.address].some((v) =>
         (v || "").toLowerCase().includes(query)
       )
@@ -83,8 +85,8 @@ export default function SupplierList() {
         axiosClient.get("/suppliers"),
         axiosClient.get("/notifications"),
       ]);
-      setSuppliers(supRes.data.data || supRes.data || []);
-      setAlerts((notifRes.data.data || notifRes.data || []).filter(
+      setSuppliers(toArray(supRes.data));
+      setAlerts(toArray(notifRes.data).filter(
         (n) => n.type === "OUT_OF_STOCK" || n.type === "LOW_STOCK"
       ));
     } catch (err) {

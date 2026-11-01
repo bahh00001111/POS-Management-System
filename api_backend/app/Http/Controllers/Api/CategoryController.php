@@ -103,11 +103,23 @@ class CategoryController extends Controller
     {
         $category = Category::where('category_id', $id)->firstOrFail();
 
+        try {
+            $category->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            // RESTRICT on products.category_id blocks the delete so historical
+            // data is never cascaded away — surface a friendly error instead.
+            if ($this->isForeignKeyViolation($e)) {
+                return response()->json([
+                    'message' => 'Cannot delete this category because it still has products.',
+                    'status'  => 'error',
+                ], 409);
+            }
+            throw $e;
+        }
+
         if ($category->image) {
             Storage::disk('public')->delete($category->image);
         }
-
-        $category->delete();
 
         Cache::forget('categories.with_products');
 

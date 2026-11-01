@@ -11,11 +11,11 @@ use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return response()->json([
             'status' => 'success',
-            'data'   => User::with('roles')->get()
+            'data'   => User::with('roles')->paginate($this->resolvePerPage($request))
         ], 200);
     }
 

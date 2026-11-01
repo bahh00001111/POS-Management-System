@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axiosClient from '../api/axiosClient';
 import { useToast } from '../context/useToast';
+import { toArray } from '../utils/apiUtils';
 import KhqrPaymentModal from '../components/KhqrPaymentModal';
 import { ShoppingBag, Plus, Minus, Trash2, CreditCard, Search, X, Printer, LayoutGrid, Coffee, CupSoda, Soup, Sandwich, Bean, IceCreamCone, CakeSlice, Tag, UtensilsCrossed, Package, Bike, BadgePercent, Store, Smartphone, User, Phone, MapPin, Hash, Wallet, Banknote, QrCode, Loader2 } from 'lucide-react';
 
@@ -145,18 +146,8 @@ export default function PosTerminal() {
         axiosClient.get('/settings')
       ]);
 
-      const loadedProducts =
-        prodRes.status === 'fulfilled'
-          ? Array.isArray(prodRes.value.data)
-            ? prodRes.value.data
-            : (prodRes.value.data.data || [])
-          : [];
-      const loadedCategories =
-        catRes.status === 'fulfilled'
-          ? Array.isArray(catRes.value.data)
-            ? catRes.value.data
-            : (catRes.value.data.data || [])
-          : [];
+      const loadedProducts = prodRes.status === 'fulfilled' ? toArray(prodRes.value.data) : [];
+      const loadedCategories = catRes.status === 'fulfilled' ? toArray(catRes.value.data) : [];
       const loadedRate =
         setRes.status === 'fulfilled'
           ? parseFloat(setRes.value.data?.data?.exchange_rate) || 4000
@@ -344,11 +335,13 @@ export default function PosTerminal() {
     const stockMap = order?.updated_stock;
     if (stockMap) {
       setProducts((prev) =>
-        prev.map((prod) => {
-          const prodId = prod.product_id || prod.id;
-          if (stockMap[prodId] == null) return prod;
-          return { ...prod, stock: stockMap[prodId] };
-        })
+        Array.isArray(prev)
+          ? prev.map((prod) => {
+              const prodId = prod.product_id || prod.id;
+              if (stockMap[prodId] == null) return prod;
+              return { ...prod, stock: stockMap[prodId] };
+            })
+          : prev
       );
     }
 
@@ -477,9 +470,13 @@ export default function PosTerminal() {
     }
   };
 
+  // Defensive normalizer: guard against any stale non-array value in state so
+  // .filter() below can never be called on an object.
+  const productList = Array.isArray(products) ? products : toArray(products);
+
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return products.filter((prod) => {
+    return productList.filter((prod) => {
       const matchesCategory =
         selectedCategory === 'ALL' ||
         String(prod.category_id) === String(selectedCategory) ||
@@ -488,7 +485,7 @@ export default function PosTerminal() {
       const prodName = prod.product_name || prod.name || '';
       return matchesCategory && prodName.toLowerCase().includes(q);
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [productList, selectedCategory, searchQuery]);
 
   const currentModalPrice = selectedProduct
     ? calculateUnitPrice(selectedProduct.price, size)

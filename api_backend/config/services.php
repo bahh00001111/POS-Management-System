@@ -71,6 +71,12 @@ return [
         // Milliseconds to wait between retry attempts.
         'open_api_retry_delay' => (int) env('BAKONG_OPEN_API_RETRY_DELAY', 200),
 
+        // Shared secret used to verify the HMAC signature on the inbound
+        // /khqr/callback webhook. The gateway signs the raw request body
+        // with HMAC-SHA256 using this secret and sends it in the
+        // `X-Bakong-Signature` header. Empty means webhooks are rejected.
+        'webhook_secret' => env('BAKONG_WEBHOOK_SECRET', ''),
+
         // Tag 99 lifetime for DYNAMIC QRs. Expiration is always generated
         // on the SERVER (never trusted from the client), so a faulty client
         // TTL can never produce an instantly-expired QR. Static QRs carry

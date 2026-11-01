@@ -22,7 +22,7 @@ return new class extends Migration
         // ប្រាប់ Laravel ឱ្យភ្ជាប់ product_id ទៅកាន់ column product_id លើ table products
         $table->foreignId('product_id')
                 ->constrained('products', 'product_id')
-                ->onDelete('cascade');
+                ->restrictOnDelete();
 
         $table->integer('quantity');
         $table->decimal('unit_price', 10, 2);

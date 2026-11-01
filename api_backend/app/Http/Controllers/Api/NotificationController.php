@@ -8,13 +8,13 @@ use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         // បង្ហាញតែការជូនដំណឹងដែលមិនទាន់អានប៉ុណ្ណោះ
         $notifications = SystemNotification::with(['product', 'supplier'])
             ->whereNull('read_at')
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate($this->resolvePerPage($request));
 
         return response()->json([
             'message' => 'Notifications retrieved successfully',

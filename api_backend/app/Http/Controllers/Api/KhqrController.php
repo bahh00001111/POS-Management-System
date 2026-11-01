@@ -176,6 +176,14 @@ class KhqrController extends Controller
      */
     public function mockSuccess(Request $request)
     {
+        // This simulator flips payment state to PAID without any gateway
+        // verification, so it must never be reachable outside local
+        // development / testing. The route is also registered conditionally
+        // in routes/api.php, this is defence in depth.
+        if (!app()->environment('local')) {
+            abort(404);
+        }
+
         $data = $request->validate([
             'reference' => 'required|string',
         ]);
@@ -221,126 +229,25 @@ class KhqrController extends Controller
     }
 
     /**
-     * Store a payment request: build a dynamic EMVCo/Bakong KHQR payload.
-     */
-    public function payload(Request $request, KhqrService $khqr)
-    {
-        $data = $request->validate([
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'required|in:USD,KHR',
-            'expiration_timestamp' => 'nullable|integer',
-        ]);
-
-        $setting = Setting::orderBy('settings_id')->first();
-
-        if (!$setting) {
-            return response()->json([
-                'message' => 'Bakong merchant account is not configured. Add your merchant details in Settings.',
-                'errors' => ['bakong_account_id' => ['The merchant account is required.']],
-            ], 422);
-        }
-
-        if ($error = $this->merchantSettingError($setting)) {
-            return response()->json($error, 422);
-        }
-
-        $currency = $data['currency'];
-        $reference = $khqr->reference();
-
-        $payloadData = [
-            'amount' => (float) $data['amount'],
-            'currency' => $currency,
-            'reference' => $reference,
-            'account_id' => trim($setting->bakong_account_id),
-            'app_id' => trim((string) $setting->bakong_app_id),
-            'merchant_name' => trim($setting->merchant_name) ?: trim($setting->store_name) ?: 'COFFEE POS',
-            'merchant_city' => trim((string) $setting->merchant_city),
-            'category_code' => $setting->merchant_category_code,
-            'expiration_timestamp' => $request->input('expiration_timestamp'),
-        ];
-
-        try {
-            $generated = $khqr->build($payloadData);
-        } catch (\InvalidArgumentException $e) {
-            Log::error('KHQR generation rejected', [
-                'reference' => $reference,
-                'reason' => json_decode($e->getMessage(), true) ?: $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'message' => 'Unable to generate a valid KHQR payload. Check your merchant settings (account ID, merchant name, city).',
-                'errors' => ['merchant' => [json_decode($e->getMessage(), true)]],
-            ], 422);
-        }
-
-        $payload = $generated['payload'];
-        $md5 = $generated['md5'];
-
-        // Debugging: capture the exact raw string that will be rendered as a QR.
-        $khqr->logPayload($payload, [
-            'currency' => $currency,
-            'amount' => $data['amount'],
-        ]);
-
-        $transaction = KhqrTransaction::create([
-            'reference' => $reference,
-            'amount' => $data['amount'],
-            'currency' => $currency,
-            'status' => 'PENDING',
-            'payload' => $payload,
-            'md5' => $md5,
-        ]);
-
-        return response()->json([
-            'message' => 'KHQR payload generated',
-            'data' => [
-                'reference' => $transaction->reference,
-                'payload' => $payload,
-                'md5' => $transaction->md5,
-                'expires_at_ms' => $generated['expires_at_ms'] ?? null,
-                'amount' => (float) $transaction->amount,
-                'currency' => $transaction->currency,
-                'status' => $transaction->status,
-                'merchant_name' => trim($setting->merchant_name) ?: trim((string) $setting->store_name),
-            ],
-        ], 201);
-    }
-
-    /**
-     * Check the payment status of a generated KHQR request.
-     */
-    public function status(Request $request)
-    {
-        $data = $request->validate([
-            'reference' => 'required|string',
-        ]);
-
-        $transaction = KhqrTransaction::where('reference', $data['reference'])->first();
-
-        if (!$transaction) {
-            return response()->json(['message' => 'Payment request not found.'], 404);
-        }
-
-        return response()->json([
-            'message' => 'Status retrieved',
-            'data' => [
-                'reference' => $transaction->reference,
-                'status' => $transaction->status,
-                'amount' => (float) $transaction->amount,
-                'currency' => $transaction->currency,
-            ],
-        ], 200);
-    }
-
-    /**
      * Webhook endpoint used by the Bakong Open API backend service to
      * notify the system that a payment succeeded (or failed).
      *
-     * NOTE: In production this must verify the signature provided by the
-     * Bakong Open API before trusting the payload.
+     * The callback is public (registered with the gateway) yet it mutates
+     * payment state, so every request must prove it knows the shared HMAC
+     * secret. Requests without a valid X-Bakong-Signature are rejected with
+     * 401 before any data is touched.
      */
     public function callback(Request $request)
     {
+        // Reject unsigned or incorrectly signed webhooks before touching any
+        // data. A public callback that mutates payment state is only safe if
+        // the caller proves it knows the shared HMAC secret.
+        if (!$this->validWebhookSignature($request)) {
+            return response()->json([
+                'message' => 'Invalid webhook signature.',
+            ], 401);
+        }
+
         $data = $request->validate([
             'reference' => 'required|string',
             'status' => 'required|in:PENDING,PAID,FAILED,EXPIRED',
@@ -383,5 +290,49 @@ class KhqrController extends Controller
                 'status' => $transaction->status,
             ],
         ], 200);
+    }
+
+    /**
+     * Verify the HMAC-SHA256 signature of an inbound Bakong webhook.
+     *
+     * The gateway signs the RAW request body with a shared secret (stored in
+     * config/services.php under 'bakong.webhook_secret') and sends the result
+     * in the `X-Bakong-Signature` header as lowercase hex. hash_equals() gives
+     * a constant-time comparison so a timing attack cannot leak the digest.
+     *
+     * When the secret is not configured the webhook is rejected: mutating
+     * payment state requires a signed callback, no exceptions.
+     */
+    private function validWebhookSignature(Request $request): bool
+    {
+        $secret = (string) config('services.bakong.webhook_secret');
+
+        if ($secret === '') {
+            Log::warning('KHQR webhook rejected: BAKONG_WEBHOOK_SECRET is not configured');
+
+            return false;
+        }
+
+        $signature = (string) $request->header('X-Bakong-Signature', '');
+
+        if ($signature === '') {
+            Log::warning('KHQR webhook rejected: missing X-Bakong-Signature header', [
+                'reference_hint' => $request->input('reference'),
+            ]);
+
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', $request->getContent(), $secret);
+
+        if (!hash_equals($expected, strtolower($signature))) {
+            Log::warning('KHQR webhook rejected: signature mismatch', [
+                'reference_hint' => $request->input('reference'),
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 }

@@ -43,15 +43,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/orders/{id}', [OrderController::class, 'show']);
         Route::get('/settings', [SettingController::class, 'index']);
-        // KHQR (Option 1: order-first flow with mock payment simulation)
+        // KHQR (order-first flow: generate a dynamic QR for an existing order)
         Route::get('/khqr/status/{reference}', [KhqrController::class, 'checkStatus']);
         Route::post('/khqr/generate', [KhqrController::class, 'generateQr']);
-        Route::post('/khqr/mock-pay', [KhqrController::class, 'mockSuccess']);
         // Bakong Open API payment verification (POS polls this to confirm)
         Route::post('/payments/verify', [PaymentController::class, 'verify']);
-        // Legacy KHQR payload/status endpoints
-        Route::post('/khqr/payload', [KhqrController::class, 'payload']);
-        Route::get('/khqr/status', [KhqrController::class, 'status']);
+        // Mock payment simulator - registered ONLY outside production so a
+        // cashier can never bypass a real payment in a live environment.
+        if (!app()->environment('production')) {
+            Route::post('/khqr/mock-pay', [KhqrController::class, 'mockSuccess']);
+        }
     });
 
     // Manage Menu, Price & Inventory (Admin, Manager)

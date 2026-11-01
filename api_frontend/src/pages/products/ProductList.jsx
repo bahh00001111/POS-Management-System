@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { useToast } from '../../context/useToast';
+import { toArray } from '../../utils/apiUtils';
 import { Plus, Edit, Trash2, Coffee, Search, X, ChevronDown, ImagePlus } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -49,8 +50,20 @@ export default function ProductList() {
   const [supplierId, setSupplierId] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  const resetProductForm = () => {
+    setEditId(null);
+    setProductName('');
+    setCategoryId(categories[0]?.category_id || categories[0]?.id || '');
+    setPrice('');
+    setStock('');
+    setSupplierId('');
+    setPreviewUrl('');
+    setImageFile(null);
+  };
 
   // ១. Fetch Products & Categories
   const fetchData = async () => {
@@ -61,21 +74,21 @@ export default function ProductList() {
     ]);
 
     if (prodRes.status === 'fulfilled') {
-      setProducts(prodRes.value.data.data || prodRes.value.data);
+      setProducts(toArray(prodRes.value.data));
     } else {
       console.error('Error fetching products:', prodRes.reason);
       toast.error('Could not load products', 'Load Failed');
     }
 
     if (catRes.status === 'fulfilled') {
-      setCategories(catRes.value.data.data || catRes.value.data);
+      setCategories(toArray(catRes.value.data));
     } else {
       console.error('Error fetching categories:', catRes.reason);
       setCategories([]);
     }
 
     if (supRes.status === 'fulfilled') {
-      setSuppliers(supRes.value.data.data || supRes.value.data || []);
+      setSuppliers(toArray(supRes.value.data));
     } else {
       console.error('Error fetching suppliers:', supRes.reason);
       setSuppliers([]);
@@ -103,24 +116,21 @@ export default function ProductList() {
       );
       setImageFile(null);
     } else {
-      setEditId(null);
-      setProductName('');
-      // កំណត់ Category ទី១ ជា default value ពេលបង្កើតថ្មី
-      const firstCatId = categories[0]?.category_id || categories[0]?.id || '';
-      setCategoryId(firstCatId);
-      setPrice('');
-      setStock('');
-      setSupplierId('');
-      setPreviewUrl('');
-      setImageFile(null);
+      resetProductForm();
     }
     setIsOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    if (submitting) return;
+    setIsOpen(false);
+    resetProductForm();
   };
 
   // ៣. Handle Image File Selection
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file instanceof File) {
       setImageFile(file);
       setPreviewUrl(URL.createObjectURL(file));
     }
@@ -130,42 +140,111 @@ export default function ProductList() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (submitting) return;
+
+    const normalizedName = productName.trim();
+    const numericPrice = Number(price);
+    const numericStock = stock === '' ? 0 : Number(stock);
+    const hasValidCategory = categories.some(
+      (category) =>
+        String(category.category_id || category.id) === String(categoryId),
+    );
+
+    if (
+      !normalizedName ||
+      !hasValidCategory ||
+      price === '' ||
+      !Number.isFinite(numericPrice) ||
+      numericPrice < 0 ||
+      !Number.isInteger(numericStock) ||
+      numericStock < 0
+    ) {
+      toast.error(
+        'Enter a valid product name, category, price, and stock.',
+        'Check Product',
+      );
+      return;
+    }
+
+    setSubmitting(true);
+
     const formData = new FormData();
-    formData.append('product_name', productName);
+    formData.append('product_name', normalizedName);
     formData.append('category_id', categoryId);
-    formData.append('price', price);
-    formData.append('stock', stock === '' ? 0 : stock);
+    formData.append('price', numericPrice);
+    formData.append('stock', numericStock);
     if (supplierId) {
       formData.append('supplier_id', supplierId);
     }
 
     if (imageFile) {
-      formData.append('image', imageFile);
+      formData.append('image', imageFile, imageFile.name);
     }
 
     try {
+      let savedProduct;
+
       if (editId) {
         // Method Spoofing សម្រាប់ Laravel File Upload លើ Update Route
         formData.append('_method', 'PUT');
-        await axiosClient.post(`/products/${editId}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+        const response = await axiosClient.post(`/products/${editId}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
+        savedProduct = response.data?.data;
         toast.success('Product updated successfully', 'Product Updated');
       } else {
-        await axiosClient.post('/products', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+        const response = await axiosClient.post('/products', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
+        savedProduct = response.data?.data;
         toast.success('Product created successfully', 'Product Created');
       }
 
+      if (savedProduct) {
+        const savedProductId = savedProduct.product_id || savedProduct.id;
+        setProducts((currentProducts) => {
+          const currentList = toArray(currentProducts);
+
+          if (editId) {
+            return currentList.map((product) =>
+              (product.product_id || product.id) === savedProductId
+                ? savedProduct
+                : product,
+            );
+          }
+
+          return [
+            savedProduct,
+            ...currentList.filter(
+              (product) => (product.product_id || product.id) !== savedProductId,
+            ),
+          ];
+        });
+      } else {
+        await fetchData();
+      }
+
+      if (!editId) {
+        setSearchTerm('');
+        setPage(1);
+        const nextSearchParams = new URLSearchParams(searchParams);
+        if (nextSearchParams.has('category')) {
+          nextSearchParams.delete('category');
+          setSearchParams(nextSearchParams, { replace: true });
+        }
+      }
+
+      resetProductForm();
       setIsOpen(false);
-      fetchData();
     } catch (err) {
       console.error('Error saving product:', err.response?.data || err);
+      console.error('Product validation errors:', err.response?.data?.errors);
       toast.error(
         err.response?.data?.message || 'Could not save product',
         'Save Failed',
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -192,9 +271,12 @@ export default function ProductList() {
   };
 
   // ៦. Live Search Filtering — useMemo ដើម្បីកុំគណនាឡើងវិញនៅពេល re-render រាល់ដង
+  const productList = Array.isArray(products) ? products : toArray(products);
+  const supplierList = Array.isArray(suppliers) ? suppliers : toArray(suppliers);
+
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return products.filter((prod) => {
+    return productList.filter((prod) => {
       const matchesCategory = activeCategoryId
         ? String(prod.category_id || prod.category?.category_id || '') === String(activeCategoryId)
         : true;
@@ -203,7 +285,7 @@ export default function ProductList() {
         (prod.category?.category_name || prod.category?.name || '').toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
     });
-  }, [products, searchTerm, activeCategoryId]);
+  }, [productList, searchTerm, activeCategoryId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -449,15 +531,21 @@ export default function ProductList() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                onClick={handleCloseModal}
+                disabled={submitting}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Close"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+            <form
+              onSubmit={handleSubmit}
+              noValidate
+              aria-busy={submitting}
+              className="px-6 py-5 space-y-4"
+            >
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
                   Product Name
@@ -533,7 +621,7 @@ export default function ProductList() {
                     className="w-full rounded-lg border border-stone-200 bg-white px-3.5 py-2.5 text-sm text-stone-800 shadow-sm transition focus:border-coffee-500 focus:ring-2 focus:ring-coffee-500/30 focus:outline-none"
                   >
                     <option value="">No supplier</option>
-                    {suppliers.map((s) => {
+                    {supplierList.map((s) => {
                       const sid = s.supplier_id || s.id;
                       return (
                         <option key={sid} value={sid}>
@@ -586,16 +674,24 @@ export default function ProductList() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-stone-600 border border-stone-200 bg-white hover:bg-stone-100 transition cursor-pointer"
+                  onClick={handleCloseModal}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-stone-600 border border-stone-200 bg-white hover:bg-stone-100 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-coffee-600 hover:bg-coffee-700 shadow-sm shadow-coffee-600/20 transition cursor-pointer"
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-coffee-600 hover:bg-coffee-700 shadow-sm shadow-coffee-600/20 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {editId ? 'Update Product' : 'Save Product'}
+                  {submitting
+                    ? editId
+                      ? 'Updating...'
+                      : 'Adding...'
+                    : editId
+                      ? 'Update Product'
+                      : 'Save Product'}
                 </button>
               </div>
             </form>

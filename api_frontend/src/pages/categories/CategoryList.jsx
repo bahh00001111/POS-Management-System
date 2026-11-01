@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { useToast } from "../../context/useToast";
+import { toArray } from "../../utils/apiUtils";
 import { Plus, Edit, Trash2, FolderTree, Loader2, Search, X, ArrowRight, ImagePlus } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -52,8 +53,8 @@ export default function CategoryList() {
         axiosClient.get("/categories"),
         axiosClient.get("/products"),
       ]);
-      const cats = Array.isArray(catRes.data) ? catRes.data : catRes.data.data || [];
-      const prods = Array.isArray(prodRes.data) ? prodRes.data : prodRes.data.data || [];
+      const cats = toArray(catRes.data);
+      const prods = toArray(prodRes.data);
       setCategories(cats);
       setProducts(prods);
     } catch (err) {
@@ -70,12 +71,16 @@ export default function CategoryList() {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Defensive normalizer: guard against any stale non-array value in state so
+  // .filter() below can never be called on an object.
+  const productList = Array.isArray(products) ? products : toArray(products);
+
   const countProductsIn = useCallback(
     (cat) => {
       const catId = cat.category_id || cat.id;
-      return products.filter((p) => String(p.category_id || "") === String(catId)).length;
+      return productList.filter((p) => String(p.category_id || "") === String(catId)).length;
     },
-    [products]
+    [productList]
   );
 
   // ២. Open Modal for Create or Edit

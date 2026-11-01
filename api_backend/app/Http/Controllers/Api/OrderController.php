@@ -10,9 +10,11 @@ use App\Services\TelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class OrderController extends Controller {
+
+    /** Warn the owner when a product's stock drops to this level or lower. */
+    private const LOW_STOCK_THRESHOLD = 10;
 
     public function index(Request $request) {
         // ទាញយក Order ជាមួយ OrderDetails, Product និង Cashier (User)
@@ -182,6 +184,53 @@ class OrderController extends Controller {
         }
     }
 
+    /**
+     * Atomically reserve the next queue and invoice sequence numbers for today.
+     *
+     * A dedicated daily_counters row (PK = counter_date) is read with
+     * FOR UPDATE inside the enclosing DB transaction, which serializes
+     * concurrent order creations on the counter row instead of racing on a
+     * COUNT() of today's orders (the old approach could hand out duplicate
+     * queue numbers). insertOrIgnore() creates the row once per day, so two
+     * simultaneous first-orders cannot insert two rows.
+     *
+     * @return array{queue: int, invoice: int}
+     */
+    private function nextDailySequences(): array
+    {
+        $today = Carbon::today()->toDateString();
+
+        DB::table('daily_counters')->insertOrIgnore([
+            'counter_date' => $today,
+            'queue_number' => 0,
+            'invoice_number' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $counter = DB::table('daily_counters')
+            ->where('counter_date', $today)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$counter) {
+            abort(500, 'Unable to reserve order numbering for today.');
+        }
+
+        $queue = (int) $counter->queue_number + 1;
+        $invoice = (int) $counter->invoice_number + 1;
+
+        DB::table('daily_counters')
+            ->where('counter_date', $today)
+            ->update([
+                'queue_number' => $queue,
+                'invoice_number' => $invoice,
+                'updated_at' => now(),
+            ]);
+
+        return ['queue' => $queue, 'invoice' => $invoice];
+    }
+
     public function store(Request $request) {
         $request->validate([
             'order_type' => 'required|in:DINE_IN,TAKEAWAY,DELIVERY',
@@ -192,7 +241,6 @@ class OrderController extends Controller {
             'items.*.size' => 'nullable|string|max:50',
             'items.*.sugar_level' => 'nullable|string|max:50',
             'items.*.remarks' => 'nullable|string|max:500',
-            'payment_status' => 'nullable|in:UNPAID,PAID',
             'discount_type' => 'nullable|in:PERCENT,FIXED',
             'discount_value' => 'nullable|numeric|min:0',
             'delivery_method' => 'nullable|in:IN_HOUSE,THIRD_PARTY',
@@ -205,22 +253,23 @@ class OrderController extends Controller {
         ]);
 
         return DB::transaction(function () use ($request) {
-            // ១. បង្កើត Queue Number អូតូសម្រាប់ថ្ងៃនេះ (ឧទាហរណ៍: #01, #02, #03)
-            // ប្រើ whereBetween ជំនួស whereDate ដើម្បីចាប់ INDEX លើ created_at
-            $todayOrdersCount = Order::whereBetween('created_at', [now()->startOfDay(), now()])->count();
-            $queueNumber = '#' . str_pad($todayOrdersCount + 1, 2, '0', STR_PAD_LEFT);
+            // ១. Reserve atomic daily queue + invoice numbers inside the
+            // transaction so concurrent orders can never collide.
+            $sequences = $this->nextDailySequences();
+            $queueNumber = '#' . str_pad($sequences['queue'], 2, '0', STR_PAD_LEFT);
+            $invoice_number = 'INV-' . Carbon::today()->format('Ymd') . '-' . str_pad($sequences['invoice'], 4, '0', STR_PAD_LEFT);
 
-            // ២. បង្កើត Invoice Number uniquely
-            $invoice_number = 'INV-' . date('Ymd-His') . '-' . strtoupper(Str::random(4));
-
-            // ៣. គណនា Subtotal ពី Unit Price របស់ Cart Item នីមួយៗ
+            // ២. គណនា Subtotal ពី Unit Price របស់ Cart Item នីមួយៗ
             $itemData = [];
             $subtotal = 0;
 
-            // Batch load all products (with supplier for notifications) once to avoid N+1 queries
+            // Batch load products (with supplier for notifications) once to
+            // avoid N+1 queries. FOR UPDATE locks the rows so concurrent
+            // order creations serialize on stock instead of overselling.
             $productIds = collect($request->items)->pluck('product_id');
             $products = Product::with('supplier')
                 ->whereIn('product_id', $productIds)
+                ->lockForUpdate()
                 ->get()
                 ->keyBy('product_id');
 
@@ -230,17 +279,26 @@ class OrderController extends Controller {
                     abort(404, "Product {$item['product_id']} not found");
                 }
 
+                $quantity = (int) $item['quantity'];
+
+                // Reject the whole order when any line needs more stock than
+                // is available. We never silently clamp stock to 0 — the
+                // exception unwinds the transaction before any row is written.
+                if ($quantity > (int) $product->stock) {
+                    abort(422, "Insufficient stock for {$product->product_name}: only {$product->stock} available, {$quantity} requested.");
+                }
+
                 $unitPrice = isset($item['price']) && is_numeric($item['price'])
                     ? (float) $item['price']
                     : (float) $product->price;
                 $unitPrice = max(0, round($unitPrice, 2));
 
-                $lineTotal = round($unitPrice * (int) $item['quantity'], 2);
+                $lineTotal = round($unitPrice * $quantity, 2);
                 $subtotal += $lineTotal;
 
                 $itemData[] = [
                     'product'    => $product,
-                    'quantity'   => (int) $item['quantity'],
+                    'quantity'   => $quantity,
                     'unit_price' => $unitPrice,
                     'line_total' => $lineTotal,
                     'size'       => $item['size'] ?? null,
@@ -281,7 +339,10 @@ class OrderController extends Controller {
                 'queue_number'       => $queueNumber,
                 'order_type'         => $request->order_type,
                 'order_status'       => 'PENDING',
-                'payment_status'     => in_array($request->payment_status, ['UNPAID', 'PAID']) ? $request->payment_status : 'UNPAID',
+                // Orders are created UNPAID. Only the verified gateway flow
+                // (PaymentController@verify or the signed webhook callback)
+                // may flip payment_status to PAID.
+                'payment_status'     => 'UNPAID',
                 'subtotal'           => $subtotal,
                 'discount_type'      => $request->discount_type,
                 'discount_value'     => $request->discount_value !== null ? (float) $request->discount_value : null,
@@ -311,13 +372,15 @@ class OrderController extends Controller {
                     'remarks'     => $item['remarks'],
                 ]);
 
-                // ៦.១ បន្ថយស្តុក (Stock) នៅពេលលក់ ហើយបង្កើតការជូនដំណឹងពេលស្តុកជិតអស់/អស់
+                // ៦.១ Decrement stock. Rows are locked FOR UPDATE above so this
+                // read-check-write is race-free and can never go below 0.
                 $product = $item['product'];
-                $newStock = max(0, (int) $product->stock - (int) $item['quantity']);
-                $product->update(['stock' => $newStock]);
+                $newStock = (int) $product->stock - $item['quantity'];
+                $product->stock = $newStock;
+                $product->save();
                 $updatedStock[$product->product_id] = $newStock;
 
-                if ($product->wasChanged('stock')) {
+                if ($newStock <= self::LOW_STOCK_THRESHOLD) {
                     $this->checkStockAndNotify($product, $newStock);
                 }
             }
@@ -354,8 +417,12 @@ class OrderController extends Controller {
     // ពិនិត្យស្តុក ហើយបង្កើត Notification ពេលស្តុកអស់ / ជិតអស់ (កុំពាក្យដដែលៗ)
     protected function checkStockAndNotify($product, $stock)
     {
-        if ($stock > 0) return;
+        // Above the threshold there is nothing to report.
+        if ($stock > self::LOW_STOCK_THRESHOLD) {
+            return;
+        }
 
+        // store() guarantees stock never drops below 0, but stay defensive.
         $type = $stock <= 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK';
         $name = $product->product_name;
         $supplierId = $product->supplier_id;
