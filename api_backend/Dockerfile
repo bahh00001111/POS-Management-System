@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.4-apache
 
 # Install system dependencies & Composer
 RUN apt-get update && apt-get install -y \
