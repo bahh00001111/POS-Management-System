@@ -17,15 +17,27 @@ WORKDIR /var/www/html
 # Copy existing application directory contents
 COPY . /var/www/html
 
-# Copy Apache virtual host config or change document root to public
+# Configure Apache Document Root and Enable AllowOverride All for URL Rewriting
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
+
+# 🛠️ បន្ថែមប្លុកនេះដើម្បីអនុញ្ញាតឱ្យ Apache អាន .htaccess (.htaccess rewriting)
+RUN echo '<Directory /var/www/html/public/>\n\
+    Options Indexes FollowSymLinks\n\
+    AllowOverride All\n\
+    Require all granted\n\
+</Directory>' >> /etc/apache2/apache2.conf
 
 RUN a2enmod rewrite
 
 # Install dependencies via composer
 RUN composer install --no-dev --optimize-autoloader
+
+# Clear and optimize cache during build
+RUN php artisan config:clear
+RUN php artisan route:clear
+RUN php artisan cache:clear
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
