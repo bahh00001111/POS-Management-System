@@ -22,7 +22,6 @@ ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 
-# 🛠️ បន្ថែមប្លុកនេះដើម្បីអនុញ្ញាតឱ្យ Apache អាន .htaccess (.htaccess rewriting)
 RUN echo '<Directory /var/www/html/public/>\n\
     Options Indexes FollowSymLinks\n\
     AllowOverride All\n\
@@ -42,4 +41,10 @@ RUN php artisan cache:clear
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
+# Copy entrypoint script and make it executable
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 80
+
+ENTRYPOINT ["entrypoint.sh"]
