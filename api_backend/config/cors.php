@@ -5,7 +5,6 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // ដាក់ Domain របស់ Vercel របស់អ្នកនៅទីនេះ
     'allowed_origins' => ['https://pos-management-system-alpha.vercel.app'], 
 
     'allowed_origins_patterns' => [],
@@ -16,5 +15,5 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false, // ព្រោះយើងប្រើ Bearer Token មិនមែន Cookie
+    'supports_credentials' => true, // 👈 ផ្លាស់ប្តូរពី false មកជា true វិញ ដើម្បីការពារបញ្ហា Header/Token ពេលផ្ញើ Request ពី Vercel
 ];
