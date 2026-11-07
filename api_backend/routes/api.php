@@ -15,6 +15,30 @@ use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+use App\Models\User;
+use App\Models\Role;
+use Illuminate\Support\Facades\Hash;
+
+Route::get('/create-admin', function () {
+    $adminRole = Role::firstOrCreate(['role_name' => 'Admin']);
+    
+    $user = User::updateOrCreate(
+        ['username' => 'admin'],
+        [
+            'full_name' => 'System Admin',
+            'email' => 'admin@pos.com',
+            'phone' => '012345678',
+            'pin_code' => Hash::make('123456'),
+            'password_hash' => Hash::make('11112222'),
+            'is_active' => true,
+        ]
+    );
+    
+    $user->roles()->sync([$adminRole->role_id]);
+    
+    return response()->json(['message' => 'Admin user created successfully!']);
+});
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
