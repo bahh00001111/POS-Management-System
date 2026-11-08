@@ -15,6 +15,12 @@ use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+use Illuminate\Support\Facades\Artisan;
+
+Route::get('/reset-db', function () {
+    Artisan::call('migrate:fresh --seed --force');
+    return response()->json(['message' => 'Database successfully reset and seeded with 3 categories and 10 products!']);
+});
 
 /*
 |--------------------------------------------------------------------------
